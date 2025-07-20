@@ -58,6 +58,9 @@ This is a Kotlin Multiplatform project using Compose Multiplatform targeting And
 - Compose runtime, foundation, material3, and UI
 - androidx.lifecycle (viewmodel and runtime-compose)
 - Compose resources for multiplatform asset management
+- Google Sign-In SDK for authentication
+- Kotlinx serialization for data handling
+- DataStore/Keychain for secure token storage
 
 ### Resource Management
 - Uses Compose Resources for cross-platform asset handling
@@ -68,3 +71,23 @@ This is a Kotlin Multiplatform project using Compose Multiplatform targeting And
 - Android: Standard Android app with Compose Activity
 - iOS: Swift app that integrates Kotlin framework via `MainViewController`
 - Web: WASM target with development server support
+
+## Authentication System
+
+### Architecture
+- Shared authentication interfaces in `commonMain/auth/`
+- Platform-specific implementations in `androidMain/auth/` and `iosMain/auth/`
+- Secure token storage using DataStore (Android) and Keychain (iOS)
+- Google OAuth 2.0 with Google Drive API permissions
+
+### Configuration Required
+1. **Google Cloud Console**: Set up OAuth clients for Android and iOS
+2. **Android**: Update `google_web_client_id` in strings.xml
+3. **iOS**: Configure GoogleSignIn pod and URL schemes (see `iosApp/GoogleSignIn-Setup.md`)
+4. **OAuth Setup**: Follow instructions in `OAUTH_SETUP.md`
+
+### Key Classes
+- `AuthenticationService` - Platform-specific auth implementations
+- `SecureStorage` - Platform-specific secure token storage
+- `AuthenticationRepository` - Shared auth state management
+- `AuthViewModel` - UI state management for authentication flows

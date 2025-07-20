@@ -1,43 +1,36 @@
 package net.shamansoft.kukbuk
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.safeContentPadding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import org.jetbrains.compose.resources.painterResource
+import androidx.lifecycle.viewmodel.compose.viewModel
+import net.shamansoft.kukbuk.auth.AuthServiceFactory
+import net.shamansoft.kukbuk.auth.AuthViewModel
+import net.shamansoft.kukbuk.auth.AuthenticationScreen
+import net.shamansoft.kukbuk.auth.AuthenticationState
 import org.jetbrains.compose.ui.tooling.preview.Preview
-
-import kukbukkmp.composeapp.generated.resources.Res
-import kukbukkmp.composeapp.generated.resources.compose_multiplatform
 
 @Composable
 @Preview
 fun App() {
     MaterialTheme {
-        var showContent by remember { mutableStateOf(false) }
-        Column(
-            modifier = Modifier
-                .safeContentPadding()
-                .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Button(onClick = { showContent = !showContent }) {
-                Text("Click me!")
+        val authRepository = remember { AuthServiceFactory.createAuthenticationRepository() }
+        val authViewModel: AuthViewModel = viewModel { AuthViewModel(authRepository) }
+        val authState by authViewModel.authState.collectAsState()
+
+        when (authState) {
+            is AuthenticationState.Authenticated -> {
+                RecipeListScreen(
+                    user = authState.user,
+                    onSignOut = { authViewModel.signOut() }
+                )
             }
-            AnimatedVisibility(showContent) {
-                val greeting = remember { Greeting().greet() }
-                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Image(painterResource(Res.drawable.compose_multiplatform), null)
-                    Text("Compose: $greeting")
-                }
+            else -> {
+                AuthenticationScreen(
+                    onAuthenticationSuccess = {
+                        // Navigation handled by state observation
+                    },
+                    authViewModel = authViewModel
+                )
             }
         }
     }
