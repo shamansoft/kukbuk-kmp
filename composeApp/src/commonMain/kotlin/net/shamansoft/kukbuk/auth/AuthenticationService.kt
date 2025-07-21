@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 interface AuthenticationService {
     val authenticationState: StateFlow<AuthenticationState>
-    
+
     suspend fun signInWithGoogle(): AuthResult
     suspend fun signOut(): Result<Unit>
     suspend fun getCurrentUser(): AuthUser?

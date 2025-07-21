@@ -2,10 +2,10 @@ package net.shamansoft.kukbuk.auth
 
 actual object AuthServiceFactory {
     actual fun createAuthenticationService(): AuthenticationService {
-        return IOSAuthenticationService()
+        return WasmAuthenticationService()
     }
 
     actual fun createSecureStorage(): SecureStorage {
-        return IOSSecureStorage()
+        return WasmSecureStorage()
     }
 }

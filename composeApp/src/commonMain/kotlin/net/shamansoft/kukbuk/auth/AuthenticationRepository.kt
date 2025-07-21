@@ -13,11 +13,11 @@ class AuthenticationRepository(
 
     suspend fun initialize() {
         _authState.value = AuthenticationState.Loading
-        
+
         try {
             val user = secureStorage.getUser()
             val tokens = secureStorage.getTokens()
-            
+
             if (user != null && tokens != null && !isTokenExpired(tokens)) {
                 _authState.value = AuthenticationState.Authenticated(user)
             } else {
@@ -32,7 +32,7 @@ class AuthenticationRepository(
 
     suspend fun signInWithGoogle(): AuthResult {
         _authState.value = AuthenticationState.Loading
-        
+
         return when (val result = authService.signInWithGoogle()) {
             is AuthResult.Success -> {
                 secureStorage.storeUser(result.user)
@@ -40,10 +40,12 @@ class AuthenticationRepository(
                 _authState.value = AuthenticationState.Authenticated(result.user)
                 result
             }
+
             is AuthResult.Error -> {
                 _authState.value = AuthenticationState.Error(result.message)
                 result
             }
+
             is AuthResult.Cancelled -> {
                 _authState.value = AuthenticationState.Unauthenticated
                 result
@@ -71,6 +73,6 @@ class AuthenticationRepository(
     }
 
     private fun isTokenExpired(tokens: AuthTokens): Boolean {
-        return System.currentTimeMillis() >= tokens.expiresAt
+        return kotlinx.datetime.Clock.System.now().toEpochMilliseconds() >= tokens.expiresAt
     }
 }

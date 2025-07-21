@@ -1,9 +1,27 @@
 package net.shamansoft.kukbuk.auth
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -11,12 +29,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun AuthenticationScreen(
     onAuthenticationSuccess: () -> Unit,
-    authViewModel: AuthViewModel = viewModel { AuthViewModel() }
+    authViewModel: AuthViewModel
 ) {
     val authState by authViewModel.authState.collectAsState()
 
@@ -53,18 +70,18 @@ fun AuthenticationScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
-                
+
                 Text(
                     text = "Your Personal Recipe Collection",
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // Sign-in content based on state
-                when (authState) {
+                when (val currentState = authState) {
                     is AuthenticationState.Loading -> {
                         CircularProgressIndicator()
                         Text(
@@ -72,12 +89,12 @@ fun AuthenticationScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    
+
                     is AuthenticationState.Unauthenticated -> {
                         GoogleSignInButton(
                             onClick = { authViewModel.signInWithGoogle() }
                         )
-                        
+
                         Text(
                             text = "Sign in to save and sync your recipes across devices",
                             fontSize = 14.sp,
@@ -86,7 +103,7 @@ fun AuthenticationScreen(
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
                     }
-                    
+
                     is AuthenticationState.Error -> {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -98,20 +115,20 @@ fun AuthenticationScreen(
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.error
                             )
-                            
+
                             Text(
-                                text = authState.message,
+                                text = currentState.message,
                                 fontSize = 14.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
-                            
+
                             GoogleSignInButton(
                                 onClick = { authViewModel.signInWithGoogle() }
                             )
                         }
                     }
-                    
+
                     is AuthenticationState.Authenticated -> {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -123,13 +140,13 @@ fun AuthenticationScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            
+
                             Text(
-                                text = "Hello, ${authState.user.displayName ?: authState.user.email}",
+                                text = "Hello, ${currentState.user.displayName ?: currentState.user.email}",
                                 fontSize = 16.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            
+
                             CircularProgressIndicator(modifier = Modifier.size(24.dp))
                         }
                     }
@@ -167,7 +184,7 @@ fun GoogleSignInButton(
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF4285F4)
             )
-            
+
             Text(
                 text = "Sign in with Google",
                 fontSize = 16.sp,

@@ -4,10 +4,10 @@ package net.shamansoft.kukbuk.auth
 expect object AuthServiceFactory {
     fun createAuthenticationService(): AuthenticationService
     fun createSecureStorage(): SecureStorage
-    
-    fun createAuthenticationRepository(): AuthenticationRepository {
-        val authService = createAuthenticationService()
-        val secureStorage = createSecureStorage()
-        return AuthenticationRepository(authService, secureStorage)
-    }
+}
+
+fun createAuthenticationRepository(): AuthenticationRepository {
+    val authService = AuthServiceFactory.createAuthenticationService()
+    val secureStorage = AuthServiceFactory.createSecureStorage()
+    return AuthenticationRepository(authService, secureStorage)
 }

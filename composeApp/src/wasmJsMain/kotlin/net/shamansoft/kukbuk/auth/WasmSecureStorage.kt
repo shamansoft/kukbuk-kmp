@@ -1,12 +1,10 @@
 package net.shamansoft.kukbuk.auth
 
 import kotlinx.serialization.json.Json
-import platform.Foundation.NSUserDefaults
 
-class IOSSecureStorage : SecureStorage {
+class WasmSecureStorage : SecureStorage {
 
     private val json = Json { ignoreUnknownKeys = true }
-    private val userDefaults = NSUserDefaults.standardUserDefaults
 
     companion object {
         private const val USER_KEY = "auth_user"
@@ -15,12 +13,13 @@ class IOSSecureStorage : SecureStorage {
 
     override suspend fun storeTokens(tokens: AuthTokens) {
         val tokenData = json.encodeToString(tokens)
-        userDefaults.setObject(tokenData, TOKENS_KEY)
-        userDefaults.synchronize()
+        // TODO: Use secure browser storage like IndexedDB with encryption
+        // For now using localStorage as placeholder
+        localStorage.setItem(TOKENS_KEY, tokenData)
     }
 
     override suspend fun getTokens(): AuthTokens? {
-        val tokenString = userDefaults.stringForKey(TOKENS_KEY)
+        val tokenString = localStorage.getItem(TOKENS_KEY)
         return tokenString?.let {
             try {
                 json.decodeFromString<AuthTokens>(it)
@@ -31,18 +30,16 @@ class IOSSecureStorage : SecureStorage {
     }
 
     override suspend fun clearTokens() {
-        userDefaults.removeObjectForKey(TOKENS_KEY)
-        userDefaults.synchronize()
+        localStorage.removeItem(TOKENS_KEY)
     }
 
     override suspend fun storeUser(user: AuthUser) {
         val userData = json.encodeToString(user)
-        userDefaults.setObject(userData, USER_KEY)
-        userDefaults.synchronize()
+        localStorage.setItem(USER_KEY, userData)
     }
 
     override suspend fun getUser(): AuthUser? {
-        val userString = userDefaults.stringForKey(USER_KEY)
+        val userString = localStorage.getItem(USER_KEY)
         return userString?.let {
             try {
                 json.decodeFromString<AuthUser>(it)
@@ -53,7 +50,13 @@ class IOSSecureStorage : SecureStorage {
     }
 
     override suspend fun clearUser() {
-        userDefaults.removeObjectForKey(USER_KEY)
-        userDefaults.synchronize()
+        localStorage.removeItem(USER_KEY)
     }
+}
+
+// Simple localStorage wrapper for WASM
+external object localStorage {
+    fun setItem(key: String, value: String)
+    fun getItem(key: String): String?
+    fun removeItem(key: String)
 }
