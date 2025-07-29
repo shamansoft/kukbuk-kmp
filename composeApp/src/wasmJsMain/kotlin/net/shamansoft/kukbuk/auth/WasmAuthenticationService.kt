@@ -40,4 +40,18 @@ class WasmAuthenticationService : AuthenticationService {
     override suspend fun getValidAccessToken(): String? {
         return null
     }
+
+    override suspend fun refreshToken(): AuthResult {
+        // TODO: Implement WASM token refresh
+        return AuthResult.Error("WASM token refresh not yet implemented")
+    }
+
+    override suspend fun validateToken(token: String): Boolean {
+        // TODO: Implement WASM token validation
+        return try {
+            token.isNotBlank() && token.startsWith("eyJ") // Basic JWT format check
+        } catch (e: Exception) {
+            false
+        }
+    }
 }

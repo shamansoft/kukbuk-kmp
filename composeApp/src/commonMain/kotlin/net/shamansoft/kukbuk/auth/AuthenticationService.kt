@@ -10,6 +10,8 @@ interface AuthenticationService {
     suspend fun getCurrentUser(): AuthUser?
     suspend fun isUserSignedIn(): Boolean
     suspend fun getValidAccessToken(): String?
+    suspend fun refreshToken(): AuthResult
+    suspend fun validateToken(token: String): Boolean
 }
 
 interface SecureStorage {

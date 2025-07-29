@@ -111,4 +111,20 @@ class AndroidAuthenticationService(
         // With Credential Manager, tokens are managed by the repository layer
         return null
     }
+
+    override suspend fun refreshToken(): AuthResult {
+        // Google ID tokens cannot be refreshed - user needs to re-authenticate
+        // This is a limitation of the Google Identity Services library
+        return AuthResult.Error("Token refresh not supported - please sign in again")
+    }
+
+    override suspend fun validateToken(token: String): Boolean {
+        // For Google ID tokens, we can do basic validation
+        // In a real implementation, you might want to verify with Google's tokeninfo endpoint
+        return try {
+            token.isNotBlank() && token.startsWith("eyJ") // Basic JWT format check
+        } catch (e: Exception) {
+            false
+        }
+    }
 }

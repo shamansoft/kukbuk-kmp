@@ -36,10 +36,16 @@ fun AuthenticationScreen(
     authViewModel: AuthViewModel
 ) {
     val authState by authViewModel.authState.collectAsState()
+    val isLoading by authViewModel.isLoading.collectAsState()
+    val errorMessage by authViewModel.errorMessage.collectAsState()
 
     LaunchedEffect(authState) {
-        if (authState is AuthenticationState.Authenticated) {
-            onAuthenticationSuccess()
+        when (authState) {
+            is AuthenticationState.Authenticated -> onAuthenticationSuccess()
+            is AuthenticationState.Error -> {
+                // Clear error message after displaying
+            }
+            else -> {}
         }
     }
 
@@ -80,28 +86,66 @@ fun AuthenticationScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Show error message if present
+                errorMessage?.let { error ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = error,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp)
+                        )
+                    }
+                }
+
                 // Sign-in content based on state
                 when (val currentState = authState) {
                     is AuthenticationState.Loading -> {
                         CircularProgressIndicator()
                         Text(
-                            text = "Signing in...",
+                            text = "Checking authentication...",
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
                     is AuthenticationState.Unauthenticated -> {
                         GoogleSignInButton(
-                            onClick = { authViewModel.signInWithGoogle() }
+                            onClick = { 
+                                authViewModel.clearError()
+                                authViewModel.signInWithGoogle() 
+                            },
+                            enabled = !isLoading
                         )
 
-                        Text(
-                            text = "Sign in to save and sync your recipes across devices",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
+                        if (isLoading) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = "Signing in...",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = "Sign in to save and sync your recipes across devices",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        }
                     }
 
                     is AuthenticationState.Error -> {
@@ -110,7 +154,7 @@ fun AuthenticationScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Text(
-                                text = "Sign-in failed",
+                                text = "Authentication failed",
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.error
@@ -124,7 +168,11 @@ fun AuthenticationScreen(
                             )
 
                             GoogleSignInButton(
-                                onClick = { authViewModel.signInWithGoogle() }
+                                onClick = { 
+                                    authViewModel.clearError()
+                                    authViewModel.signInWithGoogle() 
+                                },
+                                enabled = !isLoading
                             )
                         }
                     }
@@ -148,6 +196,11 @@ fun AuthenticationScreen(
                             )
 
                             CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            Text(
+                                text = "Loading your recipes...",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -159,16 +212,20 @@ fun AuthenticationScreen(
 @Composable
 fun GoogleSignInButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     Button(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
             .height(48.dp),
+        enabled = enabled,
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.White,
-            contentColor = Color.Black
+            contentColor = Color.Black,
+            disabledContainerColor = Color.Gray,
+            disabledContentColor = Color.White
         ),
         shape = RoundedCornerShape(8.dp),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)

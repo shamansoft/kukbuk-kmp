@@ -18,14 +18,43 @@ class AuthenticationRepository(
             val user = secureStorage.getUser()
             val tokens = secureStorage.getTokens()
 
-            if (user != null && tokens != null && !isTokenExpired(tokens)) {
-                _authState.value = AuthenticationState.Authenticated(user)
+            if (user != null && tokens != null) {
+                if (!isTokenExpired(tokens)) {
+                    if (authService.validateToken(tokens.accessToken)) {
+                        _authState.value = AuthenticationState.Authenticated(user)
+                    } else {
+                        tryRefreshToken(user, tokens)
+                    }
+                } else {
+                    tryRefreshToken(user, tokens)
+                }
             } else {
-                secureStorage.clearTokens()
-                secureStorage.clearUser()
                 _authState.value = AuthenticationState.Unauthenticated
             }
         } catch (e: Exception) {
+            _authState.value = AuthenticationState.Error("Failed to initialize authentication: ${e.message}")
+        }
+    }
+
+    private suspend fun tryRefreshToken(user: AuthUser, expiredTokens: AuthTokens) {
+        if (expiredTokens.refreshToken != null) {
+            when (val refreshResult = authService.refreshToken()) {
+                is AuthResult.Success -> {
+                    secureStorage.storeTokens(refreshResult.tokens)
+                    _authState.value = AuthenticationState.Authenticated(user)
+                }
+                is AuthResult.Error -> {
+                    secureStorage.clearTokens()
+                    secureStorage.clearUser()
+                    _authState.value = AuthenticationState.Unauthenticated
+                }
+                is AuthResult.Cancelled -> {
+                    _authState.value = AuthenticationState.Unauthenticated
+                }
+            }
+        } else {
+            secureStorage.clearTokens()
+            secureStorage.clearUser()
             _authState.value = AuthenticationState.Unauthenticated
         }
     }
@@ -54,6 +83,7 @@ class AuthenticationRepository(
     }
 
     suspend fun signOut(): Result<Unit> {
+        _authState.value = AuthenticationState.Loading
         return try {
             authService.signOut()
             secureStorage.clearTokens()
@@ -61,6 +91,7 @@ class AuthenticationRepository(
             _authState.value = AuthenticationState.Unauthenticated
             Result.success(Unit)
         } catch (e: Exception) {
+            _authState.value = AuthenticationState.Error("Failed to sign out: ${e.message}")
             Result.failure(e)
         }
     }
@@ -72,7 +103,35 @@ class AuthenticationRepository(
         }
     }
 
+    suspend fun refreshTokenIfNeeded(): Boolean {
+        val user = secureStorage.getUser()
+        val tokens = secureStorage.getTokens()
+        
+        if (user != null && tokens != null && isTokenExpired(tokens)) {
+            tryRefreshToken(user, tokens)
+            return when (_authState.value) {
+                is AuthenticationState.Authenticated -> true
+                else -> false
+            }
+        }
+        return true
+    }
+
+    suspend fun requireValidAuthentication(): AuthUser? {
+        refreshTokenIfNeeded()
+        return getCurrentUser()
+    }
+
+    fun isAuthenticated(): Boolean {
+        return _authState.value is AuthenticationState.Authenticated
+    }
+
+    fun isLoading(): Boolean {
+        return _authState.value is AuthenticationState.Loading
+    }
+
     private fun isTokenExpired(tokens: AuthTokens): Boolean {
-        return kotlinx.datetime.Clock.System.now().toEpochMilliseconds() >= tokens.expiresAt
+        val bufferTime = 300_000L // 5 minutes buffer
+        return kotlinx.datetime.Clock.System.now().toEpochMilliseconds() >= (tokens.expiresAt - bufferTime)
     }
 }
