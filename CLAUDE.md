@@ -58,7 +58,8 @@ This is a Kotlin Multiplatform project using Compose Multiplatform targeting And
 - Compose runtime, foundation, material3, and UI
 - androidx.lifecycle (viewmodel and runtime-compose)
 - Compose resources for multiplatform asset management
-- Google Sign-In SDK for authentication
+- **androidx.credentials** - Modern Credential Manager API for authentication
+- **Google Identity Services** - Google ID token handling
 - Kotlinx serialization for data handling
 - DataStore/Keychain for secure token storage
 
@@ -77,7 +78,8 @@ This is a Kotlin Multiplatform project using Compose Multiplatform targeting And
 ### Architecture
 - Shared authentication interfaces in `commonMain/auth/`
 - Platform-specific implementations in `androidMain/auth/` and `iosMain/auth/`
-- Secure token storage using DataStore (Android) and Keychain (iOS)
+- **Modern Android auth** using Credential Manager API (replaces deprecated Google Sign-In SDK)
+- Secure token storage using DataStore (Android) and NSUserDefaults (iOS)
 - Google OAuth 2.0 with Google Drive API permissions
 
 ### Configuration Required

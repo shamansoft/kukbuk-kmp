@@ -1,5 +1,5 @@
 <resources>
     <string name="app_name">Kukbukkmp</string>
     <!-- TODO: Replace with your actual Google Web Client ID from Google Cloud Console -->
-    <string name="google_web_client_id">YOUR_GOOGLE_WEB_CLIENT_ID</string>
+    <string name="google_web_client_id">124893666852-8o8evmvvh6nophjoukcj0svtkp2pv7b9.apps.googleusercontent.com</string>
 </resources>

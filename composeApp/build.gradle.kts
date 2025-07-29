@@ -56,7 +56,9 @@ kotlin {
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
-            implementation(libs.google.signin)
+            implementation(libs.androidx.credentials)
+            implementation(libs.androidx.credentials.play.services)
+            implementation(libs.google.identity.services)
             implementation(libs.androidx.datastore.preferences)
         }
         commonMain.dependencies {

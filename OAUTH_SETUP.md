@@ -2,19 +2,19 @@
 
 This document provides step-by-step instructions for configuring Google OAuth for the Kukbuk app.
 
-## Prerequisites
+## [x] Prerequisites
 
 - Google Cloud Console account
 - Firebase project (optional but recommended)
 
 ## 1. Google Cloud Console Setup
 
-### Create a Project
+### [x] Create a Project
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing one
 3. Note your project ID
 
-### Enable APIs
+### [x] Enable APIs
 1. Go to "APIs & Services" > "Library"
 2. Search for and enable:
    - Google Sign-In API
@@ -22,7 +22,7 @@ This document provides step-by-step instructions for configuring Google OAuth fo
 
 ### Create OAuth 2.0 Credentials
 
-#### Web Application (Required for server-side verification)
+#### [x] Web Application (Required for server-side verification)
 1. Go to "APIs & Services" > "Credentials"
 2. Click "Create Credentials" > "OAuth client ID"
 3. Select "Web application"
@@ -30,23 +30,26 @@ This document provides step-by-step instructions for configuring Google OAuth fo
    - `http://localhost` (for development)
    - Your production domain
 5. Save the **Client ID** and **Client Secret**
+-> downloaded plist file to no-git/oauth_secret_web.json
 
-#### Android Application
+#### [x] Android Application
 1. Create another OAuth client ID
 2. Select "Android"
 3. Package name: `net.shamansoft.kukbuk`
 4. SHA-1 certificate fingerprint:
-   - For debug: Get from Android Studio or run `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android`
-   - For release: Use your production keystore
+   - [x] For debug: Get from Android Studio or run `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android`
+   - [ ] For release: Use your production keystore
 5. Save the **Client ID**
+-> downloaded plist file to no-git/oauth_secret_android.json
 
-#### iOS Application
+#### [x] iOS Application
 1. Create another OAuth client ID
 2. Select "iOS"
 3. Bundle ID: `net.shamansoft.kukbuk`
 4. Save the **Client ID**
+-> downloaded plist file to no-git/oauth_ios.plist
 
-## 2. Android Configuration
+## 2. [x] Android Configuration
 
 ### Update strings.xml
 Replace `YOUR_GOOGLE_WEB_CLIENT_ID` in `composeApp/src/androidMain/res/values/strings.xml`:
@@ -55,19 +58,25 @@ Replace `YOUR_GOOGLE_WEB_CLIENT_ID` in `composeApp/src/androidMain/res/values/st
 <string name="google_web_client_id">YOUR_WEB_CLIENT_ID_HERE</string>
 ```
 
-### Add Google Services
+### Modern Authentication (Credential Manager)
+This project uses the modern **Credential Manager API** instead of the deprecated Google Sign-In SDK:
+
+- **androidx.credentials** - Core Credential Manager
+- **androidx.credentials:credentials-play-services-auth** - Play Services integration  
+- **com.google.android.libraries.identity.googleid** - Google Identity Services
+
+### Benefits of Credential Manager:
+- ✅ **Future-proof** - Recommended by Google
+- ✅ **Better UX** - Unified credential selection
+- ✅ **More secure** - Enhanced security model
+- ✅ **Passkey support** - Ready for passkeys
+
+### [ ] Add Google Services (Optional)
+If using Firebase features:
 1. Download `google-services.json` from Firebase Console
 2. Place it in `composeApp/` directory
-3. Add to `composeApp/build.gradle.kts`:
 
-```kotlin
-plugins {
-    // ... existing plugins
-    id("com.google.gms.google-services") version "4.4.0"
-}
-```
-
-## 3. iOS Configuration
+## [ ] 3. iOS Configuration
 
 ### Add Dependencies
 Add to `iosApp/Podfile`:
