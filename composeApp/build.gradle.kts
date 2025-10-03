@@ -60,6 +60,15 @@ kotlin {
             implementation(libs.androidx.credentials.play.services)
             implementation(libs.google.identity.services)
             implementation(libs.androidx.datastore.preferences)
+            implementation(libs.ktor.client.android)
+        }
+        
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+        }
+        
+        wasmJsMain.dependencies {
+            implementation(libs.ktor.client.js)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -73,6 +82,9 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

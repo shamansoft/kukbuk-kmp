@@ -21,4 +21,5 @@ interface SecureStorage {
     suspend fun storeUser(user: AuthUser)
     suspend fun getUser(): AuthUser?
     suspend fun clearUser()
+    suspend fun getValidAccessToken(): String?
 }

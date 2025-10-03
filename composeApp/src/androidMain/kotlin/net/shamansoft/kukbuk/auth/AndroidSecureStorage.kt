@@ -68,4 +68,8 @@ class AndroidSecureStorage(private val context: Context) : SecureStorage {
             preferences.remove(USER_KEY)
         }
     }
+
+    override suspend fun getValidAccessToken(): String? {
+        return getTokens()?.accessToken
+    }
 }

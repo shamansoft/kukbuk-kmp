@@ -11,20 +11,20 @@
 **As a user**, I want to log in with my Google account so that I can access my saved recipes.
 
 **Acceptance Criteria:**
-- [ ] User can tap "Sign in with Google" button
-- [ ] Google OAuth flow opens in system browser/webview
-- [ ] User grants permissions for Google Drive access
-- [ ] App receives and stores auth token securely
-- [ ] User is redirected to recipe list after successful login
-- [ ] Login state persists between app sessions
+- [x] User can tap "Sign in with Google" button
+- [x] Google OAuth flow opens in system browser/webview
+- [x] User grants permissions for Google Drive access
+- [x] App receives and stores auth token securely
+- [x] User is redirected to recipe list after successful login
+- [x] Login state persists between app sessions
 
 **Technical Tasks:**
-- [ ] Implement Google OAuth 2.0 for Android using Google Sign-In SDK
-- [ ] Implement Google OAuth 2.0 for iOS using GoogleSignIn SDK
-- [ ] Create shared authentication interface in common code
-- [ ] Set up secure token storage (Android Keystore / iOS Keychain)
-- [ ] Configure OAuth client IDs for both platforms
-- [ ] Add Google Drive scope permissions
+- [x] Implement Google OAuth 2.0 for Android using Google Sign-In SDK
+- [x] Implement Google OAuth 2.0 for iOS using GoogleSignIn SDK
+- [x] Create shared authentication interface in common code
+- [x] Set up secure token storage (Android Keystore / iOS Keychain)
+- [x] Configure OAuth client IDs for both platforms
+- [x] Add Google Drive scope permissions
 
 **Definition of Done:**
 - User can successfully authenticate on both iOS and Android
@@ -37,18 +37,18 @@
 **As a user**, I want the app to remember my login status so that I don't have to sign in every time.
 
 **Acceptance Criteria:**
-- [ ] App checks authentication status on startup
-- [ ] Valid tokens automatically log user in
-- [ ] Expired tokens prompt for re-authentication
-- [ ] User can manually log out from settings
-- [ ] Clear feedback when authentication fails
+- [x] App checks authentication status on startup
+- [x] Valid tokens automatically log user in
+- [x] Expired tokens prompt for re-authentication
+- [x] User can manually log out from settings
+- [x] Clear feedback when authentication fails
 
 **Technical Tasks:**
-- [ ] Implement token validation logic
-- [ ] Create authentication state management in shared code
-- [ ] Add token refresh mechanism
-- [ ] Implement logout functionality
-- [ ] Add loading states for auth checks
+- [x] Implement token validation logic
+- [x] Create authentication state management in shared code
+- [x] Add token refresh mechanism
+- [x] Implement logout functionality
+- [x] Add loading states for auth checks
 
 **Definition of Done:**
 - App maintains login state correctly

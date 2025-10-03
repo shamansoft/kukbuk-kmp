@@ -20,6 +20,10 @@ androidx-datastore = "1.1.1"
 kotlinx-coroutines = "1.9.0"
 kotlinx-serialization = "1.8.0"
 kotlinx-datetime = "0.6.1"
+googleApiClient = "2.9.1"
+ktor = "3.0.2"
+kaml = "0.56.0"
+compose-pullRefresh = "1.0.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -41,6 +45,15 @@ google-identity-services = { module = "com.google.android.libraries.identity.goo
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-json = { module = "io.ktor:ktor-client-json", version.ref = "ktor" }
+ktor-client-serialization = { module = "io.ktor:ktor-client-serialization", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" }
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
+kaml = { module = "com.charleskorn.kaml:kaml", version.ref = "kaml" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

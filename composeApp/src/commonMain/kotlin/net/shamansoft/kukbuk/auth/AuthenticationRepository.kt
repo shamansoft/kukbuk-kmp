@@ -122,6 +122,10 @@ class AuthenticationRepository(
         return getCurrentUser()
     }
 
+    suspend fun getValidAccessToken(): String? {
+        return secureStorage.getValidAccessToken()
+    }
+
     fun isAuthenticated(): Boolean {
         return _authState.value is AuthenticationState.Authenticated
     }

@@ -12,6 +12,7 @@ import net.shamansoft.kukbuk.auth.AuthViewModel
 import net.shamansoft.kukbuk.auth.AuthenticationScreen
 import net.shamansoft.kukbuk.auth.AuthenticationState
 import net.shamansoft.kukbuk.auth.createAndroidAuthenticationRepository
+import net.shamansoft.kukbuk.recipe.createRecipeListViewModel
 
 @Composable
 fun AndroidApp() {
@@ -25,9 +26,16 @@ fun AndroidApp() {
 
         when (val currentState = authState) {
             is AuthenticationState.Authenticated -> {
+                val recipeListViewModel = remember { createRecipeListViewModel(authRepository) }
+                
                 RecipeListScreen(
                     user = currentState.user,
-                    onSignOut = { authViewModel.signOut() }
+                    onSignOut = { authViewModel.signOut() },
+                    viewModel = recipeListViewModel,
+                    onRecipeClick = { recipe ->
+                        // TODO: Navigate to recipe detail screen
+                        println("Recipe clicked: ${recipe.title}")
+                    }
                 )
             }
 

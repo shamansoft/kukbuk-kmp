@@ -56,4 +56,8 @@ class IOSSecureStorage : SecureStorage {
         userDefaults.removeObjectForKey(USER_KEY)
         userDefaults.synchronize()
     }
+
+    override suspend fun getValidAccessToken(): String? {
+        return getTokens()?.accessToken
+    }
 }
