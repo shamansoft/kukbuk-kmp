@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_preferences")
@@ -23,7 +25,7 @@ class AndroidSecureStorage(private val context: Context) : SecureStorage {
 
     override suspend fun storeTokens(tokens: AuthTokens) {
         context.dataStore.edit { preferences ->
-            preferences[TOKENS_KEY] = json.encodeToString(tokens)
+            preferences[TOKENS_KEY] = Json.encodeToString(tokens)
         }
     }
 
@@ -31,7 +33,7 @@ class AndroidSecureStorage(private val context: Context) : SecureStorage {
         return context.dataStore.data.map { preferences ->
             preferences[TOKENS_KEY]?.let { tokenString ->
                 try {
-                    json.decodeFromString<AuthTokens>(tokenString)
+                    Json.decodeFromString<AuthTokens>(tokenString)
                 } catch (e: Exception) {
                     null
                 }
@@ -47,7 +49,7 @@ class AndroidSecureStorage(private val context: Context) : SecureStorage {
 
     override suspend fun storeUser(user: AuthUser) {
         context.dataStore.edit { preferences ->
-            preferences[USER_KEY] = json.encodeToString(user)
+            preferences[USER_KEY] = Json.encodeToString(user)
         }
     }
 
@@ -55,7 +57,7 @@ class AndroidSecureStorage(private val context: Context) : SecureStorage {
         return context.dataStore.data.map { preferences ->
             preferences[USER_KEY]?.let { userString ->
                 try {
-                    json.decodeFromString<AuthUser>(userString)
+                    Json.decodeFromString<AuthUser>(userString)
                 } catch (e: Exception) {
                     null
                 }

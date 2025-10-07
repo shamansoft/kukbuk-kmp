@@ -1,5 +1,7 @@
 package net.shamansoft.kukbuk.auth
 
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import platform.Foundation.NSUserDefaults
 
@@ -14,7 +16,7 @@ class IOSSecureStorage : SecureStorage {
     }
 
     override suspend fun storeTokens(tokens: AuthTokens) {
-        val tokenData = json.encodeToString(tokens)
+        val tokenData = Json.encodeToString(tokens)
         userDefaults.setObject(tokenData, TOKENS_KEY)
         userDefaults.synchronize()
     }
@@ -23,7 +25,7 @@ class IOSSecureStorage : SecureStorage {
         val tokenString = userDefaults.stringForKey(TOKENS_KEY)
         return tokenString?.let {
             try {
-                json.decodeFromString<AuthTokens>(it)
+                Json.decodeFromString<AuthTokens>(it)
             } catch (e: Exception) {
                 null
             }
@@ -36,7 +38,7 @@ class IOSSecureStorage : SecureStorage {
     }
 
     override suspend fun storeUser(user: AuthUser) {
-        val userData = json.encodeToString(user)
+        val userData = Json.encodeToString(user)
         userDefaults.setObject(userData, USER_KEY)
         userDefaults.synchronize()
     }
@@ -45,7 +47,7 @@ class IOSSecureStorage : SecureStorage {
         val userString = userDefaults.stringForKey(USER_KEY)
         return userString?.let {
             try {
-                json.decodeFromString<AuthUser>(it)
+                Json.decodeFromString<AuthUser>(it)
             } catch (e: Exception) {
                 null
             }
