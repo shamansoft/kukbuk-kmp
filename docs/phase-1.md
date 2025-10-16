@@ -11,20 +11,20 @@
 **As a user**, I want to log in with my Google account so that I can access my saved recipes.
 
 **Acceptance Criteria:**
-- [ ] User can tap "Sign in with Google" button
-- [ ] Google OAuth flow opens in system browser/webview
-- [ ] User grants permissions for Google Drive access
-- [ ] App receives and stores auth token securely
-- [ ] User is redirected to recipe list after successful login
-- [ ] Login state persists between app sessions
+- [x] User can tap "Sign in with Google" button
+- [x] Google OAuth flow opens in system browser/webview
+- [x] User grants permissions for Google Drive access
+- [x] App receives and stores auth token securely
+- [x] User is redirected to recipe list after successful login
+- [x] Login state persists between app sessions
 
 **Technical Tasks:**
-- [ ] Implement Google OAuth 2.0 for Android using Google Sign-In SDK
-- [ ] Implement Google OAuth 2.0 for iOS using GoogleSignIn SDK
-- [ ] Create shared authentication interface in common code
-- [ ] Set up secure token storage (Android Keystore / iOS Keychain)
-- [ ] Configure OAuth client IDs for both platforms
-- [ ] Add Google Drive scope permissions
+- [x] Implement Google OAuth 2.0 for Android using Google Sign-In SDK
+- [x] Implement Google OAuth 2.0 for iOS using GoogleSignIn SDK
+- [x] Create shared authentication interface in common code
+- [x] Set up secure token storage (Android Keystore / iOS Keychain)
+- [x] Configure OAuth client IDs for both platforms
+- [x] Add Google Drive scope permissions
 
 **Definition of Done:**
 - User can successfully authenticate on both iOS and Android
@@ -37,18 +37,18 @@
 **As a user**, I want the app to remember my login status so that I don't have to sign in every time.
 
 **Acceptance Criteria:**
-- [ ] App checks authentication status on startup
-- [ ] Valid tokens automatically log user in
-- [ ] Expired tokens prompt for re-authentication
-- [ ] User can manually log out from settings
-- [ ] Clear feedback when authentication fails
+- [x] App checks authentication status on startup
+- [x] Valid tokens automatically log user in
+- [x] Expired tokens prompt for re-authentication
+- [x] User can manually log out from settings
+- [x] Clear feedback when authentication fails
 
 **Technical Tasks:**
-- [ ] Implement token validation logic
-- [ ] Create authentication state management in shared code
-- [ ] Add token refresh mechanism
-- [ ] Implement logout functionality
-- [ ] Add loading states for auth checks
+- [x] Implement token validation logic
+- [x] Create authentication state management in shared code
+- [x] Add token refresh mechanism
+- [x] Implement logout functionality
+- [x] Add loading states for auth checks
 
 **Definition of Done:**
 - App maintains login state correctly
@@ -63,27 +63,56 @@
 **As a logged-in user**, I want to see a list of my saved recipes so that I can browse what I have available.
 
 **Acceptance Criteria:**
-- [ ] App displays all YAML files from Google Drive's "kukbuk" folder
-- [ ] Each recipe shows title, author (if available), and thumbnail
-- [ ] List loads efficiently even with many recipes
-- [ ] Pull-to-refresh syncs with latest Google Drive contents
-- [ ] Empty state shows helpful message for new users
-- [ ] Error handling for network/Drive access issues
+- [x] App displays all YAML files from Google Drive's "kukbuk" folder
+- [x] Each recipe shows title, author (if available), and thumbnail
+- [x] List loads efficiently even with many recipes
+- [x] Pull-to-refresh syncs with latest Google Drive contents
+- [x] Empty state shows helpful message for new users
+- [x] Error handling for network/Drive access issues
 
 **Technical Tasks:**
-- [ ] Integrate with Google Drive API to list files in kukbuk folder
-- [ ] Parse YAML metadata to extract recipe titles and basic info
-- [ ] Implement repository pattern for recipe data
-- [ ] Create RecipeListScreen with Compose UI
-- [ ] Add pull-to-refresh functionality
-- [ ] Implement proper error handling and loading states
-- [ ] Add empty state UI
+- [x] Integrate with Google Drive API to list files in kukbuk folder
+- [x] Parse YAML metadata to extract recipe titles and basic info
+- [x] Implement repository pattern for recipe data
+- [x] Create RecipeListScreen with Compose UI
+- [x] Add pull-to-refresh functionality
+- [x] Implement proper error handling and loading states
+- [x] Add empty state UI
 
 **Definition of Done:**
 - Recipe list displays all saved recipes from Chrome extension
 - Smooth scrolling performance with 100+ recipes
 - Pull-to-refresh works correctly
 - Proper error handling for network issues
+
+---
+
+### US-3a: Recipe Thumbnail Images
+**As a user**, I want to see recipe thumbnail images in the list so that I can quickly identify recipes visually.
+
+**Acceptance Criteria:**
+- [ ] Recipe cards display thumbnail images from Google Drive if available
+- [ ] Placeholder emoji (🍽️) shows for recipes without images
+- [ ] Images load without blocking the list display
+- [ ] Images are cached locally to reduce network usage
+- [ ] Image loading errors degrade gracefully to placeholder
+- [ ] Images are properly sized and don't distort aspect ratio
+- [ ] Cached images expire after 7 days to stay fresh
+
+**Technical Tasks:**
+- [ ] Integrate Coil or Kamel image loading library for Compose Multiplatform
+- [ ] Implement image URL extraction from YAML recipe metadata
+- [ ] Create image caching strategy with expiration
+- [ ] Handle image loading states (loading, success, error)
+- [ ] Add image resize/compression for performance
+- [ ] Implement platform-specific cache directory handling
+- [ ] Add network status awareness (don't load images over cellular if disabled)
+
+**Definition of Done:**
+- Recipe thumbnails display correctly on both iOS and Android
+- Image loading is non-blocking and doesn't slow list scrolling
+- Proper fallback to placeholder for missing images
+- Cache is managed and doesn't consume excessive storage
 
 ---
 
@@ -287,9 +316,10 @@
 ## Sprint Planning Suggestion
 
 **Sprint 1 (2 weeks)**: US-11, US-12, US-1 (Project setup and basic auth)
-**Sprint 2 (2 weeks)**: US-2, US-3 (Auth state management and recipe list)  
+**Sprint 2 (2 weeks)**: US-2, US-3 (Auth state management and recipe list)
+**Sprint 2b (1 week)**: US-3a (Recipe thumbnail images)
 **Sprint 3 (2 weeks)**: US-5, US-6 (Recipe detail viewing)
 **Sprint 4 (2 weeks)**: US-4, US-7 (Search and basic offline support)
 **Sprint 5 (2 weeks)**: US-8, US-9, US-10 (Performance and platform polish)
 
-**Total Estimated Timeline**: 10 weeks for Phase 1 MVP
+**Total Estimated Timeline**: 11 weeks for Phase 1 MVP

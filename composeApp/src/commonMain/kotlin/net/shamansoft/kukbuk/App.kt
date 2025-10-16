@@ -9,6 +9,7 @@ import net.shamansoft.kukbuk.auth.AuthViewModel
 import net.shamansoft.kukbuk.auth.AuthenticationScreen
 import net.shamansoft.kukbuk.auth.AuthenticationState
 import net.shamansoft.kukbuk.auth.createAuthenticationRepository
+import net.shamansoft.kukbuk.recipe.createRecipeListViewModel
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 @Composable
@@ -21,9 +22,17 @@ fun App() {
 
         when (val currentState = authState) {
             is AuthenticationState.Authenticated -> {
+                val recipeListViewModel = remember {
+                    createRecipeListViewModel(authRepository)
+                }
+
                 RecipeListScreen(
                     user = currentState.user,
-                    onSignOut = { authViewModel.signOut() }
+                    onSignOut = { authViewModel.signOut() },
+                    viewModel = recipeListViewModel,
+                    onRecipeClick = { recipe ->
+                        // TODO: Navigate to recipe detail screen
+                    }
                 )
             }
 

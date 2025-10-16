@@ -52,6 +52,10 @@ class WasmSecureStorage : SecureStorage {
     override suspend fun clearUser() {
         localStorage.removeItem(USER_KEY)
     }
+
+    override suspend fun getValidAccessToken(): String? {
+        return getTokens()?.accessToken
+    }
 }
 
 // Simple localStorage wrapper for WASM

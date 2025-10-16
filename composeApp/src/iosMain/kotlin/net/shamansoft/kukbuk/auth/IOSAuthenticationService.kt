@@ -54,4 +54,18 @@ class IOSAuthenticationService : AuthenticationService {
         // TODO: Implement iOS token retrieval
         return null
     }
+
+    override suspend fun refreshToken(): AuthResult {
+        // TODO: Implement iOS token refresh
+        return AuthResult.Error("iOS token refresh not yet implemented")
+    }
+
+    override suspend fun validateToken(token: String): Boolean {
+        // TODO: Implement iOS token validation
+        return try {
+            token.isNotBlank() && token.startsWith("eyJ") // Basic JWT format check
+        } catch (e: Exception) {
+            false
+        }
+    }
 }
