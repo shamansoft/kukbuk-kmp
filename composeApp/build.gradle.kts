@@ -59,6 +59,7 @@ kotlin {
             implementation(libs.androidx.credentials)
             implementation(libs.androidx.credentials.play.services)
             implementation(libs.google.identity.services)
+            implementation(libs.google.signin)
             implementation(libs.androidx.datastore.preferences)
             implementation(libs.ktor.client.android)
         }

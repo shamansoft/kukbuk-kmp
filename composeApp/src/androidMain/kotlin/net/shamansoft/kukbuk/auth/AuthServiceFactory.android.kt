@@ -2,6 +2,7 @@ package net.shamansoft.kukbuk.auth
 
 import android.content.Context
 import androidx.activity.ComponentActivity
+import net.shamansoft.kukbuk.MainActivity
 
 actual object AuthServiceFactory {
     actual fun createAuthenticationService(): AuthenticationService {
@@ -12,7 +13,7 @@ actual object AuthServiceFactory {
         throw IllegalStateException("Use createSecureStorage(context) on Android")
     }
 
-    fun createAuthenticationService(context: Context, activity: ComponentActivity): AuthenticationService {
+    fun createAuthenticationService(context: Context, activity: MainActivity): AuthenticationService {
         return AndroidAuthenticationService(context, activity)
     }
 

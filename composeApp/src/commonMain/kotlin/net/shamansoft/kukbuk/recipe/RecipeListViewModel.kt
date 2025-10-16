@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import net.shamansoft.kukbuk.util.Logger
 
 class RecipeListViewModel(
     private val recipeRepository: RecipeRepository
@@ -26,20 +27,27 @@ class RecipeListViewModel(
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
     
     init {
+        Logger.d("RecipeListVM", "Initializing...")
         loadRecipes()
     }
-    
+
     fun loadRecipes() {
+        Logger.d("RecipeListVM", "loadRecipes() called")
         viewModelScope.launch {
+            Logger.d("RecipeListVM", "Launching coroutine to load recipes")
             recipeRepository.loadRecipes()
+            Logger.d("RecipeListVM", "loadRecipes() completed, state: ${recipeListState.value}")
         }
     }
-    
+
     fun refreshRecipes() {
+        Logger.d("RecipeListVM", "refreshRecipes() called")
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
+                Logger.d("RecipeListVM", "Calling repository.refreshRecipes()")
                 recipeRepository.refreshRecipes()
+                Logger.d("RecipeListVM", "refreshRecipes() completed, state: ${recipeListState.value}")
             } finally {
                 _isRefreshing.value = false
             }

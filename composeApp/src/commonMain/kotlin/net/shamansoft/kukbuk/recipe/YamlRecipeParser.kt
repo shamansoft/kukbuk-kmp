@@ -1,5 +1,7 @@
 package net.shamansoft.kukbuk.recipe
 
+import net.shamansoft.kukbuk.util.Logger
+
 class YamlRecipeParser {
     
     fun parseRecipeYaml(yamlContent: String, fileId: String, lastModified: String): Recipe? {
@@ -32,10 +34,13 @@ class YamlRecipeParser {
     }
     
     fun parseRecipeMetadata(yamlContent: String, fileId: String, lastModified: String, fileName: String): RecipeMetadata? {
+        Logger.d("YamlParser", "parseRecipeMetadata() called for file: $fileName")
         return try {
+            Logger.d("YamlParser", "Parsing YAML content (${yamlContent.length} chars)")
             val yamlMap = parseSimpleYaml(yamlContent)
-            
-            RecipeMetadata(
+            Logger.d("YamlParser", "Parsed ${yamlMap.size} fields from YAML")
+
+            val metadata = RecipeMetadata(
                 id = fileId,
                 title = yamlMap["title"] ?: extractTitleFromFileName(fileName),
                 author = yamlMap["author"],
@@ -44,8 +49,14 @@ class YamlRecipeParser {
                 driveFileId = fileId,
                 lastModified = lastModified
             )
+            Logger.d("YamlParser", "Successfully created metadata: ${metadata.title}")
+            metadata
         } catch (e: Exception) {
-            createFallbackMetadata(fileId, fileName, lastModified)
+            Logger.d("YamlParser", "Exception parsing metadata for $fileName: ${e.message}")
+            e.printStackTrace()
+            val fallback = createFallbackMetadata(fileId, fileName, lastModified)
+            Logger.d("YamlParser", "Created fallback metadata: ${fallback.title}")
+            fallback
         }
     }
     

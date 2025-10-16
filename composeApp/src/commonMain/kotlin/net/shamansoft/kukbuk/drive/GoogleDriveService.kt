@@ -12,9 +12,9 @@ interface GoogleDriveService {
 data class DriveFile(
     val id: String,
     val name: String,
-    val mimeType: String,
+    val mimeType: String? = null,
     val size: Long? = null,
-    val modifiedTime: String,
+    val modifiedTime: String? = null,
     val parents: List<String> = emptyList(),
     val webViewLink: String? = null
 )
