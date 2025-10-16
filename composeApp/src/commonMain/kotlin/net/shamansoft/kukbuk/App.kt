@@ -12,7 +12,6 @@ import net.shamansoft.kukbuk.auth.createAuthenticationRepository
 import net.shamansoft.kukbuk.recipe.createRecipeListViewModel
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-import net.shamansoft.kukbuk.util.Logger
 @Composable
 @Preview
 fun App() {
@@ -23,26 +22,21 @@ fun App() {
 
         when (val currentState = authState) {
             is AuthenticationState.Authenticated -> {
-                Logger.d("App", "User authenticated: ${currentState.user.email}")
                 val recipeListViewModel = remember {
-                    Logger.d("App", "Creating RecipeListViewModel")
                     createRecipeListViewModel(authRepository)
                 }
 
-                Logger.d("App", "Rendering RecipeListScreen")
                 RecipeListScreen(
                     user = currentState.user,
                     onSignOut = { authViewModel.signOut() },
                     viewModel = recipeListViewModel,
                     onRecipeClick = { recipe ->
                         // TODO: Navigate to recipe detail screen
-                        println("Recipe clicked: ${recipe.title}")
                     }
                 )
             }
 
             else -> {
-                Logger.d("App", "User not authenticated, showing AuthenticationScreen, state: $currentState")
                 AuthenticationScreen(
                     onAuthenticationSuccess = {
                         // Navigation handled by state observation

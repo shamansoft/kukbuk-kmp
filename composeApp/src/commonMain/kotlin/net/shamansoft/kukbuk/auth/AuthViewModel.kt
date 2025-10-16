@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-import net.shamansoft.kukbuk.util.Logger
 class AuthViewModel(
     private val authRepository: AuthenticationRepository? = null
 ) : ViewModel() {
@@ -21,14 +20,11 @@ class AuthViewModel(
     val errorMessage: StateFlow<String?> = _errorMessage
 
     init {
-        Logger.d("AuthVM", "Initializing...")
         // Initialize authentication state
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                Logger.d("AuthVM", "Calling authRepository.initialize()")
                 authRepository?.initialize()
-                Logger.d("AuthVM", "Initialized, auth state: ${authState.value}")
             } finally {
                 _isLoading.value = false
             }

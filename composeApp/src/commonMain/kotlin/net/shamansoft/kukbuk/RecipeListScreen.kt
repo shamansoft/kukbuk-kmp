@@ -23,7 +23,6 @@ import net.shamansoft.kukbuk.recipe.RecipeListState
 import net.shamansoft.kukbuk.recipe.RecipeListViewModel
 import net.shamansoft.kukbuk.recipe.RecipeMetadata
 
-import net.shamansoft.kukbuk.util.Logger
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeListScreen(
@@ -69,12 +68,10 @@ fun RecipeListScreen(
         // Recipe list content
         when (val state = recipeListState) {
             is RecipeListState.Loading -> {
-                Logger.d("RecipeScreen", "Rendering Loading state")
                 LoadingState()
             }
             is RecipeListState.Success -> {
                 val displayedRecipes = viewModel.getDisplayedRecipes()
-                Logger.d("RecipeScreen", "Rendering Success state with ${displayedRecipes.size} recipes")
                 RecipeList(
                     recipes = displayedRecipes,
                     onRecipeClick = onRecipeClick,
@@ -83,14 +80,12 @@ fun RecipeListScreen(
                 )
             }
             is RecipeListState.Error -> {
-                Logger.d("RecipeScreen", "Rendering Error state: ${state.message}")
                 ErrorState(
                     message = state.message,
                     onRetry = { viewModel.retryLoading() }
                 )
             }
             is RecipeListState.Empty -> {
-                Logger.d("RecipeScreen", "Rendering Empty state")
                 EmptyState()
             }
         }
