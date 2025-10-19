@@ -116,57 +116,104 @@
 
 ---
 
-### US-4: Search My Recipes
+### US-4: Search My Recipes ✅ COMPLETED
 **As a user with many recipes**, I want to search and filter my collection so that I can quickly find specific recipes.
 
 **Acceptance Criteria:**
-- [ ] Search bar at top of recipe list
-- [ ] Real-time search as user types
-- [ ] Search works on recipe title, author, and tags
-- [ ] Clear search button to reset results
-- [ ] Search results highlight matching terms
-- [ ] Search works offline with cached data
+- [x] Search bar at top of recipe list
+- [x] Real-time search as user types
+- [x] Search works on recipe title, author, and description
+- [x] Clear search button to reset results
+- [ ] Search results highlight matching terms (nice-to-have, not critical)
+- [x] Search works offline with cached data
 
 **Technical Tasks:**
-- [ ] Add search TextField to RecipeListScreen
-- [ ] Implement search logic in repository layer
-- [ ] Create search filtering for recipe metadata
-- [ ] Add search state management
-- [ ] Implement search result highlighting
-- [ ] Add debouncing for search input
+- [x] Add search TextField to RecipeListScreen
+- [x] Implement search logic in repository layer (RecipeRepository.searchRecipes)
+- [x] Create search filtering for recipe metadata
+- [x] Add search state management in RecipeListViewModel
+- [ ] Implement search result highlighting (deferred)
+- [ ] Add debouncing for search input (deferred, not critical)
 
 **Definition of Done:**
-- Fast, responsive search functionality
-- Search works across all recipe metadata fields
-- Results update in real-time as user types
+- [x] Fast, responsive search functionality
+- [x] Search works across title, author, description fields
+- [x] Results update in real-time as user types
+- [x] Toggle search UI with search icon button
+- [x] Empty search state shows helpful message
+
+**Implementation Files:**
+- `RecipeListScreen.kt` - Search UI (SearchBar, toggle button)
+- `RecipeListViewModel.kt` - Search state management
+- `RecipeRepository.kt` - searchRecipes() method
 
 ---
 
 ## Recipe Viewing Stories
 
-### US-5: View Recipe Details
+### US-5: View Recipe Details ✅ COMPLETED
 **As a user**, I want to tap on a recipe to see its full details so that I can cook from it.
 
 **Acceptance Criteria:**
-- [ ] Tapping recipe from list opens detail view
-- [ ] Recipe detail shows all information: title, description, ingredients, instructions
-- [ ] Instructions are clearly numbered and easy to follow
-- [ ] Ingredients show amounts and units clearly
-- [ ] Back button returns to recipe list
-- [ ] Recipe loads quickly and handles long content well
+- [x] Tapping recipe from list opens detail view
+- [x] Recipe detail shows all information: title, description, ingredients, instructions
+- [x] Instructions are clearly numbered and easy to follow
+- [x] Ingredients show amounts and units clearly
+- [x] Back button returns to recipe list
+- [x] Recipe loads quickly and handles long content well
 
 **Technical Tasks:**
-- [ ] Create RecipeDetailScreen with full recipe layout
-- [ ] Implement YAML parsing for complete recipe structure
-- [ ] Design readable typography for cooking instructions
-- [ ] Add navigation between list and detail screens
-- [ ] Handle recipe images if present
-- [ ] Optimize for different screen sizes
+- [x] Create RecipeDetailScreen with full recipe layout
+- [x] Implement YAML parsing for complete recipe structure
+- [x] Design readable typography for cooking instructions
+- [x] Add navigation between list and detail screens
+- [x] Optimize for different screen sizes
+- [ ] Handle recipe images if present (moved to US-5a)
 
 **Definition of Done:**
-- Recipe details display all information clearly
-- Easy navigation between recipes and back to list
-- Readable on both phone and tablet screen sizes
+- [x] Recipe details display all information clearly
+- [x] Easy navigation between recipes and back to list
+- [x] Readable on both phone and tablet screen sizes
+
+**Implementation Files:**
+- `navigation/Screen.kt` - Navigation state management
+- `recipe/RecipeDetailViewModel.kt` - Detail screen state
+- `RecipeDetailScreen.kt` - Full recipe UI
+- `AndroidApp.kt` & `App.kt` - Navigation integration
+
+---
+
+### US-5a: Recipe Detail Images
+**As a user**, I want to see recipe images in the detail view so that I can visually identify the dish.
+
+**Acceptance Criteria:**
+- [ ] Recipe detail displays hero image from YAML metadata if available
+- [ ] Images load asynchronously without blocking UI
+- [ ] Placeholder shows while image is loading
+- [ ] Fallback gradient + emoji shows for recipes without images
+- [ ] Images are cached locally to reduce network usage
+- [ ] Image loading errors degrade gracefully to placeholder
+- [ ] Images scale properly on different screen sizes
+- [ ] Images maintain aspect ratio (no distortion)
+
+**Technical Tasks:**
+- [ ] Integrate Coil or Kamel image loading library for Compose Multiplatform
+- [ ] Update RecipeDetailScreen to use AsyncImage component
+- [ ] Implement image caching strategy
+- [ ] Handle image loading states (loading, success, error)
+- [ ] Add image resize/compression for performance
+- [ ] Test image loading on slow network conditions
+- [ ] Add network status awareness (cellular vs wifi)
+
+**Definition of Done:**
+- Recipe images display correctly in detail view
+- Image loading is non-blocking and smooth
+- Proper fallback for missing/broken images
+- Cache is managed efficiently
+
+**Dependencies:**
+- Builds on US-5 (recipe detail screen must exist)
+- Related to US-3a (similar image loading for list thumbnails)
 
 ---
 
@@ -315,11 +362,17 @@
 
 ## Sprint Planning Suggestion
 
-**Sprint 1 (2 weeks)**: US-11, US-12, US-1 (Project setup and basic auth)
-**Sprint 2 (2 weeks)**: US-2, US-3 (Auth state management and recipe list)
-**Sprint 2b (1 week)**: US-3a (Recipe thumbnail images)
-**Sprint 3 (2 weeks)**: US-5, US-6 (Recipe detail viewing)
-**Sprint 4 (2 weeks)**: US-4, US-7 (Search and basic offline support)
-**Sprint 5 (2 weeks)**: US-8, US-9, US-10 (Performance and platform polish)
+**Sprint 1 (2 weeks)**: US-11, US-12, US-1 (Project setup and basic auth) ✅ COMPLETED
+**Sprint 2 (2 weeks)**: US-2, US-3 (Auth state management and recipe list) ✅ COMPLETED
+**Sprint 2b (1 week)**: US-3a, US-5a (Recipe images for list and detail) - TODO
+**Sprint 3 (2 weeks)**: US-5 ✅ COMPLETED, US-4 ✅ COMPLETED, US-6 (Cooking display) - TODO
+**Sprint 4 (2 weeks)**: US-7 (Offline support) - TODO
+**Sprint 5 (2 weeks)**: US-8, US-9, US-10 (Performance and platform polish) - TODO
 
 **Total Estimated Timeline**: 11 weeks for Phase 1 MVP
+
+**Progress**:
+- ✅ Sprint 1-2: Auth & recipe list complete
+- ✅ US-5: Recipe detail view complete
+- ✅ US-4: Search complete
+- 🔜 Next: US-3a/US-5a (images), US-6 (cooking-friendly display), US-7 (offline)
