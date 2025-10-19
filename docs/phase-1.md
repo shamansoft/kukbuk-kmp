@@ -320,54 +320,39 @@ The Recipe data class is currently missing important fields from the schema:
 
 ---
 
-### US-5c: Tabbed Recipe Detail UI
-**As a user viewing a recipe**, I want a tabbed interface showing recipe overview, ingredients, and steps so that I can easily navigate between sections while cooking.
+### US-5c: Single-Screen Recipe Detail View
+**As a user viewing a recipe**, I want to see all recipe information on a single scrollable screen so that I can quickly browse through everything I need to cook.
 
 **Design Specification:**
 
-**Layout Architecture:**
+**Layout Architecture (Single Scrollable Screen):**
 ```
-┌─────────────────────────────────┐
-│    Recipe Title (Sticky)        │  ← Sticky header
-├─────────────────────────────────┤
-│  [Overview] [Ingredients] [Steps] │  ← Tab navigation
-├─────────────────────────────────┤
-│                                 │
-│    TAB CONTENT AREA             │
-│  (Swipeable/Scrollable)         │
-│                                 │
-├─────────────────────────────────┤
-│  Back   |   Share   |   Save     │  ← Action buttons
-└─────────────────────────────────┘
+┌──────────────────────────────────┐
+│  ← Back  |  Recipe Title (Sticky)│  ← App bar (sticky at top)
+├──────────────────────────────────┤
+│                                  │
+│  SCROLLABLE CONTENT AREA:        │
+│                                  │
+│  ► STEPS SECTION                 │  ← Primary content for cooking
+│  ► INGREDIENTS SECTION           │  ← Grouped by component
+│  ► DESCRIPTION                   │  ← Recipe overview
+│  ► CREDITS/METADATA              │  ← Author, source, dates
+│  ► NUTRITION INFO                │  ← Per serving stats
+│  ► STORAGE INSTRUCTIONS          │  ← If available
+│  ► EQUIPMENT LIST                │  ← If needed
+│                                  │
+├──────────────────────────────────┤
+│  Share  |  Save  |  Timer (FAB)  │  ← Action buttons
+└──────────────────────────────────┘
 ```
 
-**Tab 1: Overview Tab** (Default View)
-- Hero image from `metadata.cover_image` (or placeholder gradient + emoji 🍽️)
-- Recipe metadata card showing:
-  - **Servings:** X servings (editable, with +/- buttons)
-  - **Prep Time:** XX minutes (if available)
-  - **Cook Time:** XX minutes (if available)
-  - **Total Time:** XX minutes (if available)
-  - **Difficulty:** Easy/Medium/Hard badge
-  - **Categories:** Tags showing cuisine type, meal type, etc.
-- Short description (markdown formatted from `description` field)
-- Nutrition summary card (calories per serving if available)
-- Quick ingredient count: "Ingredients: X" link to ingredients tab
+**Section Order (Top to Bottom):**
 
-**Tab 2: Ingredients Tab**
-- Grouped ingredients by component (e.g., "For the Dough", "For the Filling")
-  - Each group as a collapsible section
-- For each ingredient:
-  - Checkbox (starts unchecked, user can mark as added)
-  - Ingredient name with bold emphasis
-  - Amount + Unit (editable based on servings slider)
-  - Optional indicator badge (if applicable)
-  - Notes in smaller text (e.g., "softened")
-  - Substitution hint/popover if available
-- Search field to filter ingredients
-- "Check All" / "Uncheck All" buttons for groups
+**1. Header (Sticky)**
+- Back button + Recipe title (sticky as user scrolls)
+- Difficulty badge, servings counter (+/- buttons)
 
-**Tab 3: Steps Tab**
+**2. Steps Section** (Primary - right after header)
 - Numbered, clear instruction steps
 - Each step card shows:
   - Large step number (visual hierarchy)
@@ -375,71 +360,116 @@ The Recipe data class is currently missing important fields from the schema:
   - Time estimate if provided (e.g., "⏱ 5 min")
   - Temperature if applicable (e.g., "🌡 375°F")
   - Media gallery if images/videos exist
-  - Optional notes field
-- Progress indicator showing current step
-- Next/Previous step buttons at bottom
-- Ability to mark step as complete (visual strikethrough)
+  - Ability to mark step as complete (visual checkmark/strikethrough)
+- Progress indicator (Step 2 of 8)
+- Next/Previous step buttons within section
 
-**Navigation & Interaction:**
-- Swipe left/right between tabs
-- Tap tab titles to jump to specific tab
-- Top menu for quick tab selection (optional on small screens)
-- Smooth transitions between tabs
-- Save selected tab preference for next recipe view
+**3. Ingredients Section**
+- Servings slider/counter at top (quantity scales based on this)
+- Grouped ingredients by component (e.g., "For the Dough", "For the Filling")
+  - Each group as a collapsible section
+- For each ingredient:
+  - Checkbox (user can mark as gathered)
+  - Ingredient name with bold emphasis
+  - Amount + Unit (scales with servings)
+  - Optional indicator badge (if applicable)
+  - Notes in smaller text (e.g., "softened", "room temperature")
+  - Substitution hint/popover if available
+- Search field to filter ingredients (appears at top when scrolled to this section)
 
-**Responsive Design:**
-- Phone (320-600px): Tabs visible, vertical scrolling within tabs
-- Tablet (600px+): Larger text, more whitespace, side-by-side layout option
-- Landscape: Optimize for horizontal space
+**4. Description Section**
+- Hero image from `metadata.cover_image` (or placeholder gradient + emoji 🍽️)
+- Recipe metadata card:
+  - **Categories:** Tags (dessert, baking, etc.)
+  - **Prep Time:** XX minutes (if available)
+  - **Cook Time:** XX minutes (if available)
+  - **Total Time:** XX minutes (if available)
+- Full description (markdown formatted)
+
+**5. Credits/Metadata Section**
+- **Author:** Recipe author (if available)
+- **Source:** Link to original recipe URL
+- **Date Created:** When recipe was added
+- **Last Modified:** Last update date
+- **Language:** Localization info (if relevant)
+- **Recipe Version:** Version number
+
+**6. Nutrition Info Section** (if available)
+- Per serving nutritional breakdown:
+  - Calories, Protein, Carbs, Fat, Fiber, Sugar, Sodium
+- Formatted as a simple table or compact card layout
+
+**7. Storage Instructions** (if available)
+- Refrigerator storage time/instructions
+- Freezer storage time/instructions
+- Room temperature storage instructions
+
+**8. Equipment List** (if available)
+- Simple list of required equipment/tools
+
+**Design Principles:**
+- Vertical scrolling through all sections (no tabs, no swipes)
+- Sticky header with recipe title visible at all times
+- Content organized by cooking workflow (steps first, then ingredients, then reference info)
+- Kitchen-optimized: Large readable fonts, high contrast, minimal distractions
+- Dark mode support for late-night cooking
+- Large touch targets (min 44pt) for wet/dirty hands
 
 **Accessibility:**
-- High contrast text for kitchen use (light text on dark background option)
+- High contrast text for kitchen use
 - Large touch targets (min 44pt)
 - Semantic labels for all interactive elements
-- Screen reader support for tab navigation
-- Dark mode support for late-night cooking
+- Screen reader support for all sections
+- Dark mode support
 
 **Visual Design:**
 - Use Material Design 3 for Android
 - Use iOS HIG for iOS
 - Consistent spacing and typography
-- Bottom app bar with action buttons (share, save, go to top)
-- Floating action button for common actions (e.g., timer, shopping list export)
+- Bottom app bar/floating buttons for actions (share, save, timer)
+- Collapsible sections to reduce initial scroll distance
 
 **Acceptance Criteria:**
-- [ ] Three-tab interface displays correctly on iOS and Android
-- [ ] Swipe navigation works smoothly between tabs
-- [ ] Overview tab shows all metadata and image
-- [ ] Ingredients tab with groups and checkboxes
-- [ ] Steps tab with clear numbering and cooking info
-- [ ] All content is readable in kitchen lighting (high contrast)
+- [ ] All recipe information displays on single screen
+- [ ] Smooth vertical scrolling through all sections
+- [ ] Sticky header with recipe title visible while scrolling
+- [ ] Steps section prominent at top for cooking use
+- [ ] Ingredients grouped by component with checkboxes
+- [ ] Ingredient quantities scale based on servings
+- [ ] All content readable in kitchen lighting (high contrast)
 - [ ] Responsive on phone (320px) to tablet (>600px)
 - [ ] Markdown in descriptions and steps renders correctly
 - [ ] Images load asynchronously without blocking UI
-- [ ] Performance: Tab switches < 100ms
+- [ ] Collapsible sections (metadata, storage, etc.) don't clutter view
 
 **Technical Tasks:**
-- [ ] Implement tabbed UI using Compose Material 3 TabRow
-- [ ] Create separate composable functions for each tab:
-  - `OverviewTab(recipe: Recipe, servings: Int)`
-  - `IngredientsTab(recipe: Recipe, servings: Int)`
-  - `StepsTab(recipe: Recipe)`
-- [ ] Implement swipe gesture detection for tab navigation
-- [ ] Add ingredient quantity calculator based on servings
+- [ ] Update RecipeDetailScreen with single-screen layout
+- [ ] Create separate composable functions for sections:
+  - `StepsSection(recipe: Recipe, state: CookingState)`
+  - `IngredientsSection(recipe: Recipe, servings: Int, state: IngredientsState)`
+  - `DescriptionSection(recipe: Recipe)`
+  - `CreditsSection(recipe: Recipe)`
+  - `NutritionSection(recipe: Recipe)`
+  - `StorageSection(recipe: Recipe)`
+  - `EquipmentSection(recipe: Recipe)`
+- [ ] Implement serving quantity calculator for ingredient scaling
 - [ ] Create checkbox state management for ingredients
 - [ ] Implement step progress tracking
 - [ ] Add Markdown rendering for descriptions and instructions
 - [ ] Optimize image loading with proper caching
 - [ ] Create high-contrast theme for cooking
 - [ ] Add kitchen-friendly text sizing (large, readable fonts)
+- [ ] Implement collapsible sections for secondary content
 
 **UI Components Needed:**
 - `IngredientGroupCard` - Shows grouped ingredients with expander
-- `IngredientItemRow` - Single ingredient with checkbox
-- `StepCard` - Single instruction step with media
-- `NutritionBadge` - Shows macro information
-- `RecipeMetadataCard` - Shows prep time, difficulty, etc.
+- `IngredientItemRow` - Single ingredient with checkbox and quantity
+- `StepCard` - Single instruction step with media and progress
+- `NutritionBadge` - Shows macro information in compact format
+- `RecipeMetadataCard` - Shows prep time, difficulty, servings
 - `MediaGallery` - Image/video carousel for step media
+- `StickyRecipeHeader` - Header that stays visible while scrolling
+- `CollapsibleSection` - Reusable collapsible content area
 
 **Dependencies:**
 - US-5b (Enhanced Recipe Data Model) - Required for structured data
@@ -447,12 +477,12 @@ The Recipe data class is currently missing important fields from the schema:
 - Image loading library (Coil/Kamel)
 
 **Definition of Done:**
-- Tabbed interface fully functional on iOS and Android
+- Single-screen recipe view fully functional on iOS and Android
 - All recipe sections display correctly
-- Smooth navigation between tabs
+- Smooth scrolling with no jank
 - Optimized for cooking use case
 - High contrast option available
-- Tests for tab state management
+- All ingredients and steps visible without tabs
 
 ---
 
@@ -578,27 +608,30 @@ The Recipe data class is currently missing important fields from the schema:
 **Sprint 1 (2 weeks)**: US-11, US-12, US-1 (Project setup and basic auth) ✅ COMPLETED
 **Sprint 2 (2 weeks)**: US-2, US-3 (Auth state management and recipe list) ✅ COMPLETED
 **Sprint 2b (1 week)**: US-3a, US-5a (Recipe images for list and detail) - TODO
-**Sprint 3 (2 weeks)**: US-5 ✅ COMPLETED, US-4 ✅ COMPLETED, US-5b, US-5c (Cooking display) - TODO
-**Sprint 4 (2 weeks)**: US-6, US-7 (Offline support, cooking-friendly features) - TODO
-**Sprint 5 (2 weeks)**: US-8, US-9, US-10 (Performance and platform polish) - TODO
+**Sprint 3 (2 weeks)**: US-5 ✅ COMPLETED, US-4 ✅ COMPLETED, US-5b, US-5c (Enhanced data model + single-screen detail) - TODO
+**Sprint 4 (2 weeks)**: US-6, US-7 (Cooking-friendly features, offline support) - TODO
+**Sprint 5 (1 week)**: US-8, US-9, US-10 (Performance and platform polish) - TODO
 
-**Total Estimated Timeline**: 13 weeks for Phase 1 MVP (added US-5b and US-5c)
+**Total Estimated Timeline**: 12 weeks for Phase 1 MVP (simplified approach: single-screen recipe view instead of tabs)
 
 **Progress**:
 - ✅ Sprint 1-2: Auth & recipe list complete
 - ✅ US-5: Recipe detail view complete (basic version)
 - ✅ US-4: Search complete
-- 🔜 Next: US-3a/US-5a (images), then US-5b/US-5c (enhanced model + tabbed UI), US-6/US-7 (offline)
+- 🔜 Next: US-3a/US-5a (images), then US-5b/US-5c (enhanced data model + single-screen UI), US-6/US-7 (offline/cooking features)
 
-**Data Model Update Story Added:**
-- **US-5b**: Enhance Recipe data class to fully support schema with structured Ingredients, Instructions, Nutrition, etc.
-- **US-5c**: Design and implement tabbed recipe detail UI with Overview, Ingredients, and Steps tabs with swipe navigation
+**Data Model & UI Stories:**
+- **US-5b**: Enhance Recipe data class to fully support schema with structured Ingredients, Instructions, Nutrition, Storage, Equipment
+- **US-5c**: Single-screen recipe detail with all information in scrollable order: Steps → Ingredients → Description → Credits → Nutrition → Storage → Equipment
 
-**UI Design Highlights (US-5c):**
-- Sticky recipe title header
-- Three-tab navigation: Overview | Ingredients | Steps
-- Swipe left/right to navigate between tabs
-- Overview: Hero image + metadata (servings, times, difficulty, categories) + description
-- Ingredients: Grouped by component, with checkboxes, quantity scaling based on servings
-- Steps: Numbered with timing, temperature, media support, progress tracking
-- Kitchen-optimized: High contrast, large readable fonts, touch-friendly
+**Single-Screen Design (US-5c):**
+- Sticky recipe header with title, difficulty, servings (+/-)
+- Steps section first (primary cooking focus)
+- Ingredients section (grouped by component, with checkboxes and quantity scaling)
+- Description + metadata (hero image, categories, times)
+- Credits (author, source, dates)
+- Nutrition (if available)
+- Storage instructions (if available)
+- Equipment list (if available)
+- Kitchen-optimized: High contrast, large readable fonts, touch-friendly, no tabs needed
+- Single vertical scroll through all sections
