@@ -77,7 +77,14 @@ class HttpGoogleDriveService(
             } else {
                 val errorBody = response.bodyAsText()
                 Logger.d("DriveService", "Failed to list files: ${response.status}, body: $errorBody")
-                DriveResult.Error("Failed to list files: ${response.status}", response.status.value)
+
+                if (response.status.value == 401) {
+                    Logger.e("DriveService", "Authentication error (401) - clearing auth state")
+                    authRepository.handleAuthenticationError()
+                    DriveResult.Error("Authentication expired. Please sign in again.", response.status.value)
+                } else {
+                    DriveResult.Error("Failed to list files: ${response.status}", response.status.value)
+                }
             }
         } catch (e: Exception) {
             Logger.d("DriveService", "Exception in listFilesInKukbukFolder: ${e.message}")
@@ -112,7 +119,14 @@ class HttpGoogleDriveService(
             } else {
                 val errorBody = response.bodyAsText()
                 Logger.d("DriveService", "Failed to download file: ${response.status}, body: $errorBody")
-                DriveResult.Error("Failed to download file: ${response.status}", response.status.value)
+
+                if (response.status.value == 401) {
+                    Logger.e("DriveService", "Authentication error (401) - clearing auth state")
+                    authRepository.handleAuthenticationError()
+                    DriveResult.Error("Authentication expired. Please sign in again.", response.status.value)
+                } else {
+                    DriveResult.Error("Failed to download file: ${response.status}", response.status.value)
+                }
             }
         } catch (e: Exception) {
             Logger.d("DriveService", "Exception in downloadFileContent: ${e.message}")
@@ -175,7 +189,15 @@ class HttpGoogleDriveService(
             } else {
                 val errorBody = response.bodyAsText()
                 Logger.d("DriveService", "Failed to find kukbuk folder: ${response.status}, body: $errorBody")
-                DriveResult.Error("Failed to find kukbuk folder: ${response.status}", response.status.value)
+
+                // Handle 401 Unauthorized - token expired or invalid
+                if (response.status.value == 401) {
+                    Logger.e("DriveService", "Authentication error (401) - clearing auth state")
+                    authRepository.handleAuthenticationError()
+                    DriveResult.Error("Authentication expired. Please sign in again.", response.status.value)
+                } else {
+                    DriveResult.Error("Failed to find kukbuk folder: ${response.status}", response.status.value)
+                }
             }
         } catch (e: Exception) {
             Logger.d("DriveService", "Exception in findKukbukFolder: ${e.message}")

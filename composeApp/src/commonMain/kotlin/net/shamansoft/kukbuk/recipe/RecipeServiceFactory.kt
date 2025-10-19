@@ -8,3 +8,12 @@ fun createRecipeListViewModel(authRepository: AuthenticationRepository): RecipeL
     val recipeRepository = RecipeRepository(driveService)
     return RecipeListViewModel(recipeRepository)
 }
+
+fun createRecipeDetailViewModel(
+    recipeId: String,
+    authRepository: AuthenticationRepository
+): RecipeDetailViewModel {
+    val driveService = HttpGoogleDriveService(authRepository)
+    val recipeRepository = RecipeRepository(driveService)
+    return RecipeDetailViewModel(recipeId, recipeRepository)
+}
