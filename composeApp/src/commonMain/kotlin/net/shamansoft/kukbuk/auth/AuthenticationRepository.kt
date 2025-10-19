@@ -151,6 +151,19 @@ class AuthenticationRepository(
         return tokens.accessToken
     }
 
+    suspend fun handleAuthenticationError() {
+        Logger.e("AuthRepo", "Authentication error occurred - clearing credentials")
+        // Don't call signOut() to avoid loops - directly clear and update state
+        try {
+            secureStorage.clearTokens()
+            secureStorage.clearUser()
+            _authState.value = AuthenticationState.Unauthenticated
+        } catch (e: Exception) {
+            Logger.e("AuthRepo", "Error handling authentication error: ${e.message}")
+            _authState.value = AuthenticationState.Error("Authentication failed. Please sign in again.")
+        }
+    }
+
     fun isAuthenticated(): Boolean {
         return _authState.value is AuthenticationState.Authenticated
     }
