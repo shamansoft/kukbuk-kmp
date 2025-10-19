@@ -42,6 +42,7 @@ import net.shamansoft.kukbuk.auth.AuthUser
 import net.shamansoft.kukbuk.recipe.RecipeListState
 import net.shamansoft.kukbuk.recipe.RecipeListViewModel
 import net.shamansoft.kukbuk.recipe.RecipeMetadata
+import net.shamansoft.kukbuk.util.RecipeImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -248,44 +249,13 @@ private fun RecipeCard(
             modifier = Modifier.padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Recipe thumbnail placeholder
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .then(
-                        if (recipe.imageUrl != null) {
-                            Modifier // TODO: Load actual image
-                        } else {
-                            Modifier
-                        }
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                if (recipe.imageUrl != null) {
-                    // TODO: Load image using AsyncImage or similar
-                    Text(
-                        text = "🍽️",
-                        fontSize = 32.sp
-                    )
-                } else {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Box(
-                            modifier = Modifier.size(80.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "🍽️",
-                                fontSize = 32.sp
-                            )
-                        }
-                    }
-                }
-            }
+            // Recipe thumbnail with image loading
+            RecipeImage(
+                url = recipe.imageUrl,
+                contentDescription = "Recipe: ${recipe.title}",
+                modifier = Modifier.size(80.dp),
+                cornerRadius = 8.dp
+            )
 
             Column(
                 modifier = Modifier.weight(1f),
