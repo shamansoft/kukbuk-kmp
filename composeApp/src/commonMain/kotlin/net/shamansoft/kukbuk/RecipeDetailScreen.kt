@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import net.shamansoft.kukbuk.recipe.Recipe
 import net.shamansoft.kukbuk.recipe.RecipeDetailState
 import net.shamansoft.kukbuk.recipe.RecipeDetailViewModel
+import net.shamansoft.kukbuk.util.RecipeImage
 
 /**
  * Recipe detail screen showing full recipe information
@@ -142,19 +143,14 @@ private fun RecipeHeader(recipe: Recipe) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Hero Image Placeholder
-        Box(
+        RecipeImage(
+            url = recipe.imageUrl,
+            contentDescription = "Recipe: ${recipe.title}",
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "🍽️",
-                fontSize = 64.sp
-            )
-        }
+                .height(120.dp),
+            cornerRadius = 12.dp
+        )
 
         // Title
         Text(
