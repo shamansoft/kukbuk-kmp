@@ -99,7 +99,7 @@ private fun RecipeContent(recipe: Recipe) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Recipe Header
         item {
@@ -140,7 +140,7 @@ private fun RecipeContent(recipe: Recipe) {
 private fun RecipeHeader(recipe: Recipe) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Hero Image Placeholder
         RecipeImage(
