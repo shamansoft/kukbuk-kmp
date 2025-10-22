@@ -16,12 +16,17 @@ class RecipeRepository(
     val recipeListState: StateFlow<RecipeListState> = _recipeListState.asStateFlow()
 
     private val _recipeCache = mutableMapOf<String, Recipe>()
+    private var _metadataCache: List<RecipeMetadata>? = null
 
     suspend fun loadRecipes(forceRefresh: Boolean = false) {
-        if (!forceRefresh && _recipeListState.value is RecipeListState.Success) {
-            return // Don't reload if we already have data and not forcing refresh
+        // If we have cached data and not forcing refresh, use cache
+        if (!forceRefresh && _metadataCache != null) {
+            _recipeListState.value = RecipeListState.Success(_metadataCache!!)
+            Logger.d("RecipeRepo", "Using cached recipe metadata (${_metadataCache!!.size} recipes)")
+            return
         }
 
+        Logger.d("RecipeRepo", "Downloading recipes from Google Drive (forceRefresh=$forceRefresh)")
         _recipeListState.value = RecipeListState.Loading
 
         when (val result = driveService.listFilesInKukbukFolder()) {
@@ -58,7 +63,9 @@ class RecipeRepository(
 
                     if (recipes.isNotEmpty()) {
                         val sorted = recipes.sortedByDescending { it.lastModified }
+                        _metadataCache = sorted // Cache the metadata
                         _recipeListState.value = RecipeListState.Success(sorted)
+                        Logger.d("RecipeRepo", "Cached ${sorted.size} recipe metadata entries")
                     } else {
                         _recipeListState.value =
                             RecipeListState.Error("No valid recipes found in your Google Drive")
@@ -120,6 +127,40 @@ class RecipeRepository(
 
     suspend fun refreshRecipes() {
         loadRecipes(forceRefresh = true)
+    }
+
+    suspend fun refreshRecipe(recipeId: String): RecipeResult<Recipe> {
+        Logger.d("RecipeRepo", "Force refreshing recipe: $recipeId")
+
+        // Remove from cache to force re-download
+        _recipeCache.remove(recipeId)
+
+        // Download fresh from Drive
+        return when (val result = driveService.downloadFileContent(recipeId)) {
+            is DriveResult.Success -> {
+                Logger.d("RecipeRepo", "Downloaded fresh recipe content (${result.data.length} chars)")
+                val recipe = yamlParser.parseRecipeYaml(
+                    yamlContent = result.data,
+                    fileId = recipeId,
+                    lastModified = ""
+                )
+                if (recipe != null) {
+                    Logger.d("RecipeRepo", "Successfully parsed refreshed recipe: ${recipe.title}")
+                    _recipeCache[recipeId] = recipe
+                    RecipeResult.Success(recipe)
+                } else {
+                    Logger.e("RecipeRepo", "Failed to parse refreshed recipe YAML")
+                    RecipeResult.Error("Failed to parse recipe data")
+                }
+            }
+            is DriveResult.Error -> {
+                Logger.e("RecipeRepo", "Error refreshing recipe: ${result.message}")
+                RecipeResult.Error(result.message)
+            }
+            is DriveResult.Loading -> {
+                RecipeResult.Loading
+            }
+        }
     }
 
     fun searchRecipes(query: String): RecipeResult<List<RecipeMetadata>> {

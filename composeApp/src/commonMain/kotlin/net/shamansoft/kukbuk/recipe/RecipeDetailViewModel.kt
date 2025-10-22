@@ -76,4 +76,28 @@ class RecipeDetailViewModel(
         Logger.d("RecipeDetailVM", "Retrying recipe load")
         loadRecipe()
     }
+
+    /**
+     * Force refresh the recipe from Google Drive
+     */
+    fun refresh() {
+        viewModelScope.launch {
+            _recipeDetailState.value = RecipeDetailState.Loading
+            Logger.d("RecipeDetailVM", "Force refreshing recipe: $recipeId")
+
+            when (val result = recipeRepository.refreshRecipe(recipeId)) {
+                is RecipeResult.Success -> {
+                    Logger.d("RecipeDetailVM", "Recipe refreshed successfully: ${result.data.title}")
+                    _recipeDetailState.value = RecipeDetailState.Success(result.data)
+                }
+                is RecipeResult.Error -> {
+                    Logger.e("RecipeDetailVM", "Error refreshing recipe: ${result.message}")
+                    _recipeDetailState.value = RecipeDetailState.Error(result.message)
+                }
+                is RecipeResult.Loading -> {
+                    // Already in loading state
+                }
+            }
+        }
+    }
 }

@@ -27,14 +27,15 @@ fun App() {
         // Navigation state management - hoisted outside authentication state
         var currentScreen by remember { mutableStateOf<Screen>(Screen.RecipeList) }
 
+        // Keep ViewModel alive across navigation
+        val recipeListViewModel = remember {
+            createRecipeListViewModel(authRepository)
+        }
+
         when (val currentState = authState) {
             is AuthenticationState.Authenticated -> {
                 when (val screen = currentScreen) {
                     Screen.RecipeList -> {
-                        val recipeListViewModel = remember {
-                            createRecipeListViewModel(authRepository)
-                        }
-
                         RecipeListScreen(
                             user = currentState.user,
                             onSignOut = { authViewModel.signOut() },
