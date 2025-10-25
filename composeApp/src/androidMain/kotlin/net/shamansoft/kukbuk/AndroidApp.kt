@@ -1,83 +1,41 @@
 package net.shamansoft.kukbuk
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
-import net.shamansoft.kukbuk.auth.AuthViewModel
-import net.shamansoft.kukbuk.auth.AuthenticationScreen
-import net.shamansoft.kukbuk.auth.AuthenticationState
-import net.shamansoft.kukbuk.auth.createAndroidAuthenticationRepository
-import net.shamansoft.kukbuk.navigation.Screen
-import net.shamansoft.kukbuk.recipe.createRecipeDetailViewModel
-import net.shamansoft.kukbuk.recipe.createRecipeListViewModel
+import net.shamansoft.kukbuk.di.getAndroidLocalDevModules
+import net.shamansoft.kukbuk.di.getAndroidProductionModules
+import net.shamansoft.kukbuk.util.Logger
+import org.koin.compose.KoinApplication
+import org.koin.dsl.module
 
+/**
+ * Android-specific app wrapper that provides MainActivity to Koin
+ */
 @Composable
 fun AndroidApp() {
-    MaterialTheme {
-        val context = LocalContext.current
-        val activity = LocalView.current.context as MainActivity
+    val context = LocalContext.current
+    val activity = context as? MainActivity
+        ?: throw IllegalStateException("AndroidApp must be called from MainActivity")
 
-        val authRepository = remember {
-            createAndroidAuthenticationRepository(context, activity)
-        }
-        val authViewModel = remember {
-            AuthViewModel(authRepository)
-        }
-        val authState by authViewModel.authState.collectAsState()
-
-        // Navigation state management
-        var currentScreen by remember { mutableStateOf<Screen>(Screen.RecipeList) }
-
-        when (val currentState = authState) {
-            is AuthenticationState.Authenticated -> {
-                when (val screen = currentScreen) {
-                    Screen.RecipeList -> {
-                        val recipeListViewModel = remember {
-                            createRecipeListViewModel(authRepository)
-                        }
-
-                        RecipeListScreen(
-                            user = currentState.user,
-                            onSignOut = { authViewModel.signOut() },
-                            viewModel = recipeListViewModel,
-                            onRecipeClick = { recipe ->
-                                currentScreen = Screen.RecipeDetail(
-                                    recipeId = recipe.driveFileId,
-                                    recipeTitle = recipe.title
-                                )
-                            }
-                        )
-                    }
-
-                    is Screen.RecipeDetail -> {
-                        val detailViewModel = remember(screen.recipeId) {
-                            createRecipeDetailViewModel(screen.recipeId, authRepository)
-                        }
-
-                        RecipeDetailScreen(
-                            recipeId = screen.recipeId,
-                            recipeTitle = screen.recipeTitle,
-                            onNavigateBack = { currentScreen = Screen.RecipeList },
-                            viewModel = detailViewModel
-                        )
-                    }
-                }
+    // Android-specific Koin initialization with MainActivity
+    KoinApplication(
+        application = {
+            // Provide MainActivity instance to Koin
+            val mainActivityModule = module {
+                single { activity }
             }
 
-            else -> {
-                AuthenticationScreen(
-                    onAuthenticationSuccess = {
-                        // Navigation handled by state observation
-                    },
-                    authViewModel = authViewModel
-                )
+            val modules = if (DataSourceConfig.isLocalMode()) {
+                Logger.d("AndroidApp", "Using LOCAL data source (local files)")
+                getAndroidLocalDevModules() + mainActivityModule
+            } else {
+                Logger.d("AndroidApp", "Using PRODUCTION data source (Google Drive)")
+                getAndroidProductionModules() + mainActivityModule
             }
+            modules(modules)
         }
+    ) {
+        // Call the common app content
+        AppContent()
     }
 }

@@ -30,6 +30,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        // Initialize platform config with context
+        initPlatformConfig(applicationContext)
+
         setContent {
             AndroidApp()
         }

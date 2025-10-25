@@ -84,6 +84,9 @@ fun RecipeListScreen(
             )
         }
 
+        // Debug menu (only visible in debug builds on Android)
+        DebugDataSourceSection()
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // Recipe list content

@@ -3,12 +3,10 @@ package net.shamansoft.kukbuk.recipe
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import net.shamansoft.kukbuk.drive.DriveResult
-import net.shamansoft.kukbuk.drive.GoogleDriveService
 import net.shamansoft.kukbuk.util.Logger
 
 class RecipeRepository(
-    private val driveService: GoogleDriveService,
+    private val dataSource: RecipeDataSource,
     private val yamlParser: YamlRecipeParser = YamlRecipeParser()
 ) {
 
@@ -26,11 +24,11 @@ class RecipeRepository(
             return
         }
 
-        Logger.d("RecipeRepo", "Downloading recipes from Google Drive (forceRefresh=$forceRefresh)")
+        Logger.d("RecipeRepo", "Loading recipes from data source (forceRefresh=$forceRefresh)")
         _recipeListState.value = RecipeListState.Loading
 
-        when (val result = driveService.listFilesInKukbukFolder()) {
-            is DriveResult.Success -> {
+        when (val result = dataSource.listRecipeFiles()) {
+            is DataSourceResult.Success -> {
                 val files = result.data
 
                 if (files.isEmpty()) {
@@ -40,12 +38,12 @@ class RecipeRepository(
 
                     files.forEach { file ->
                         try {
-                            val content = driveService.downloadFileContent(file.id)
-                            if (content is DriveResult.Success) {
+                            val content = dataSource.getFileContent(file.id)
+                            if (content is DataSourceResult.Success) {
                                 val metadata = yamlParser.parseRecipeMetadata(
                                     yamlContent = content.data,
                                     fileId = file.id,
-                                    lastModified = file.modifiedTime ?: "",
+                                    lastModified = file.modifiedTime,
                                     fileName = file.name
                                 )
                                 if (metadata != null) {
@@ -68,16 +66,16 @@ class RecipeRepository(
                         Logger.d("RecipeRepo", "Cached ${sorted.size} recipe metadata entries")
                     } else {
                         _recipeListState.value =
-                            RecipeListState.Error("No valid recipes found in your Google Drive")
+                            RecipeListState.Error("No valid recipes found")
                     }
                 }
             }
 
-            is DriveResult.Error -> {
+            is DataSourceResult.Error -> {
                 _recipeListState.value = RecipeListState.Error(result.message)
             }
 
-            is DriveResult.Loading -> {
+            is DataSourceResult.Loading -> {
                 // Already in loading state
             }
         }
@@ -92,12 +90,12 @@ class RecipeRepository(
             return RecipeResult.Success(cachedRecipe)
         }
 
-        Logger.d("RecipeRepo", "Recipe not in cache, downloading from Drive")
-        return when (val result = driveService.downloadFileContent(recipeId)) {
-            is DriveResult.Success -> {
+        Logger.d("RecipeRepo", "Recipe not in cache, loading from data source")
+        return when (val result = dataSource.getFileContent(recipeId)) {
+            is DataSourceResult.Success -> {
                 Logger.d(
                     "RecipeRepo",
-                    "Downloaded recipe content, parsing YAML (${result.data.length} chars)"
+                    "Loaded recipe content, parsing YAML (${result.data.length} chars)"
                 )
                 val recipe = yamlParser.parseRecipeYaml(
                     yamlContent = result.data,
@@ -114,12 +112,12 @@ class RecipeRepository(
                 }
             }
 
-            is DriveResult.Error -> {
-                Logger.e("RecipeRepo", "Error downloading recipe: ${result.message}")
+            is DataSourceResult.Error -> {
+                Logger.e("RecipeRepo", "Error loading recipe: ${result.message}")
                 RecipeResult.Error(result.message)
             }
 
-            is DriveResult.Loading -> {
+            is DataSourceResult.Loading -> {
                 RecipeResult.Loading
             }
         }
@@ -132,13 +130,13 @@ class RecipeRepository(
     suspend fun refreshRecipe(recipeId: String): RecipeResult<Recipe> {
         Logger.d("RecipeRepo", "Force refreshing recipe: $recipeId")
 
-        // Remove from cache to force re-download
+        // Remove from cache to force reload
         _recipeCache.remove(recipeId)
 
-        // Download fresh from Drive
-        return when (val result = driveService.downloadFileContent(recipeId)) {
-            is DriveResult.Success -> {
-                Logger.d("RecipeRepo", "Downloaded fresh recipe content (${result.data.length} chars)")
+        // Load fresh from data source
+        return when (val result = dataSource.getFileContent(recipeId)) {
+            is DataSourceResult.Success -> {
+                Logger.d("RecipeRepo", "Loaded fresh recipe content (${result.data.length} chars)")
                 val recipe = yamlParser.parseRecipeYaml(
                     yamlContent = result.data,
                     fileId = recipeId,
@@ -153,11 +151,11 @@ class RecipeRepository(
                     RecipeResult.Error("Failed to parse recipe data")
                 }
             }
-            is DriveResult.Error -> {
+            is DataSourceResult.Error -> {
                 Logger.e("RecipeRepo", "Error refreshing recipe: ${result.message}")
                 RecipeResult.Error(result.message)
             }
-            is DriveResult.Loading -> {
+            is DataSourceResult.Loading -> {
                 RecipeResult.Loading
             }
         }
