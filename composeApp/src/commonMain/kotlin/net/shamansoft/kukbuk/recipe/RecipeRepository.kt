@@ -3,12 +3,10 @@ package net.shamansoft.kukbuk.recipe
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import net.shamansoft.kukbuk.drive.DriveResult
-import net.shamansoft.kukbuk.drive.GoogleDriveService
 import net.shamansoft.kukbuk.util.Logger
 
 class RecipeRepository(
-    private val driveService: GoogleDriveService,
+    private val dataSource: RecipeDataSource,
     private val yamlParser: YamlRecipeParser = YamlRecipeParser()
 ) {
 
@@ -16,16 +14,21 @@ class RecipeRepository(
     val recipeListState: StateFlow<RecipeListState> = _recipeListState.asStateFlow()
 
     private val _recipeCache = mutableMapOf<String, Recipe>()
+    private var _metadataCache: List<RecipeMetadata>? = null
 
     suspend fun loadRecipes(forceRefresh: Boolean = false) {
-        if (!forceRefresh && _recipeListState.value is RecipeListState.Success) {
-            return // Don't reload if we already have data and not forcing refresh
+        // If we have cached data and not forcing refresh, use cache
+        if (!forceRefresh && _metadataCache != null) {
+            _recipeListState.value = RecipeListState.Success(_metadataCache!!)
+            Logger.d("RecipeRepo", "Using cached recipe metadata (${_metadataCache!!.size} recipes)")
+            return
         }
 
+        Logger.d("RecipeRepo", "Loading recipes from data source (forceRefresh=$forceRefresh)")
         _recipeListState.value = RecipeListState.Loading
 
-        when (val result = driveService.listFilesInKukbukFolder()) {
-            is DriveResult.Success -> {
+        when (val result = dataSource.listRecipeFiles()) {
+            is DataSourceResult.Success -> {
                 val files = result.data
 
                 if (files.isEmpty()) {
@@ -35,12 +38,12 @@ class RecipeRepository(
 
                     files.forEach { file ->
                         try {
-                            val content = driveService.downloadFileContent(file.id)
-                            if (content is DriveResult.Success) {
+                            val content = dataSource.getFileContent(file.id)
+                            if (content is DataSourceResult.Success) {
                                 val metadata = yamlParser.parseRecipeMetadata(
                                     yamlContent = content.data,
                                     fileId = file.id,
-                                    lastModified = file.modifiedTime ?: "",
+                                    lastModified = file.modifiedTime,
                                     fileName = file.name
                                 )
                                 if (metadata != null) {
@@ -58,19 +61,21 @@ class RecipeRepository(
 
                     if (recipes.isNotEmpty()) {
                         val sorted = recipes.sortedByDescending { it.lastModified }
+                        _metadataCache = sorted // Cache the metadata
                         _recipeListState.value = RecipeListState.Success(sorted)
+                        Logger.d("RecipeRepo", "Cached ${sorted.size} recipe metadata entries")
                     } else {
                         _recipeListState.value =
-                            RecipeListState.Error("No valid recipes found in your Google Drive")
+                            RecipeListState.Error("No valid recipes found")
                     }
                 }
             }
 
-            is DriveResult.Error -> {
+            is DataSourceResult.Error -> {
                 _recipeListState.value = RecipeListState.Error(result.message)
             }
 
-            is DriveResult.Loading -> {
+            is DataSourceResult.Loading -> {
                 // Already in loading state
             }
         }
@@ -85,12 +90,12 @@ class RecipeRepository(
             return RecipeResult.Success(cachedRecipe)
         }
 
-        Logger.d("RecipeRepo", "Recipe not in cache, downloading from Drive")
-        return when (val result = driveService.downloadFileContent(recipeId)) {
-            is DriveResult.Success -> {
+        Logger.d("RecipeRepo", "Recipe not in cache, loading from data source")
+        return when (val result = dataSource.getFileContent(recipeId)) {
+            is DataSourceResult.Success -> {
                 Logger.d(
                     "RecipeRepo",
-                    "Downloaded recipe content, parsing YAML (${result.data.length} chars)"
+                    "Loaded recipe content, parsing YAML (${result.data.length} chars)"
                 )
                 val recipe = yamlParser.parseRecipeYaml(
                     yamlContent = result.data,
@@ -107,12 +112,12 @@ class RecipeRepository(
                 }
             }
 
-            is DriveResult.Error -> {
-                Logger.e("RecipeRepo", "Error downloading recipe: ${result.message}")
+            is DataSourceResult.Error -> {
+                Logger.e("RecipeRepo", "Error loading recipe: ${result.message}")
                 RecipeResult.Error(result.message)
             }
 
-            is DriveResult.Loading -> {
+            is DataSourceResult.Loading -> {
                 RecipeResult.Loading
             }
         }
@@ -120,6 +125,40 @@ class RecipeRepository(
 
     suspend fun refreshRecipes() {
         loadRecipes(forceRefresh = true)
+    }
+
+    suspend fun refreshRecipe(recipeId: String): RecipeResult<Recipe> {
+        Logger.d("RecipeRepo", "Force refreshing recipe: $recipeId")
+
+        // Remove from cache to force reload
+        _recipeCache.remove(recipeId)
+
+        // Load fresh from data source
+        return when (val result = dataSource.getFileContent(recipeId)) {
+            is DataSourceResult.Success -> {
+                Logger.d("RecipeRepo", "Loaded fresh recipe content (${result.data.length} chars)")
+                val recipe = yamlParser.parseRecipeYaml(
+                    yamlContent = result.data,
+                    fileId = recipeId,
+                    lastModified = ""
+                )
+                if (recipe != null) {
+                    Logger.d("RecipeRepo", "Successfully parsed refreshed recipe: ${recipe.title}")
+                    _recipeCache[recipeId] = recipe
+                    RecipeResult.Success(recipe)
+                } else {
+                    Logger.e("RecipeRepo", "Failed to parse refreshed recipe YAML")
+                    RecipeResult.Error("Failed to parse recipe data")
+                }
+            }
+            is DataSourceResult.Error -> {
+                Logger.e("RecipeRepo", "Error refreshing recipe: ${result.message}")
+                RecipeResult.Error(result.message)
+            }
+            is DataSourceResult.Loading -> {
+                RecipeResult.Loading
+            }
+        }
     }
 
     fun searchRecipes(query: String): RecipeResult<List<RecipeMetadata>> {
