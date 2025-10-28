@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.sp
 import net.shamansoft.kukbuk.auth.AuthUser
 import net.shamansoft.kukbuk.recipe.RecipeListState
 import net.shamansoft.kukbuk.recipe.RecipeListViewModel
-import net.shamansoft.kukbuk.recipe.RecipeMetadata
+import net.shamansoft.kukbuk.recipe.RecipeListItem
 import net.shamansoft.kukbuk.util.RecipeImage
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,7 +50,7 @@ fun RecipeListScreen(
     user: AuthUser,
     onSignOut: () -> Unit,
     viewModel: RecipeListViewModel,
-    onRecipeClick: (RecipeMetadata) -> Unit
+    onRecipeClick: (RecipeListItem) -> Unit
 ) {
     val recipeListState by viewModel.recipeListState.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -205,8 +205,8 @@ private fun SearchBar(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RecipeList(
-    recipes: List<RecipeMetadata>,
-    onRecipeClick: (RecipeMetadata) -> Unit,
+    recipes: List<RecipeListItem>,
+    onRecipeClick: (RecipeListItem) -> Unit,
     isRefreshing: Boolean,
     onRefresh: () -> Unit
 ) {
@@ -239,7 +239,7 @@ private fun RecipeList(
 
 @Composable
 private fun RecipeCard(
-    recipe: RecipeMetadata,
+    recipe: RecipeListItem,
     onClick: () -> Unit
 ) {
     Card(

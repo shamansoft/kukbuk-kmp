@@ -122,7 +122,7 @@ private fun PlaceholderImage(
  */
 @Composable
 fun MediaGallery(
-    media: List<net.shamansoft.kukbuk.recipe.Media>,
+    media: List<net.shamansoft.recipe.model.Media>,
     modifier: Modifier = Modifier
 ) {
     if (media.isEmpty()) return
@@ -142,7 +142,7 @@ fun MediaGallery(
  */
 @Composable
 private fun MediaItem(
-    media: net.shamansoft.kukbuk.recipe.Media,
+    media: net.shamansoft.recipe.model.Media,
     modifier: Modifier = Modifier
 ) {
     when (media.type.lowercase()) {

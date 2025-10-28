@@ -4,17 +4,19 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import net.shamansoft.kukbuk.util.Logger
+import net.shamansoft.recipe.model.Recipe
+import net.shamansoft.recipe.parser.RecipeYaml
+import net.shamansoft.recipe.parser.RecipeParseException
 
 class RecipeRepository(
-    private val dataSource: RecipeDataSource,
-    private val yamlParser: YamlRecipeParser = YamlRecipeParser()
+    private val dataSource: RecipeDataSource
 ) {
 
     private val _recipeListState = MutableStateFlow<RecipeListState>(RecipeListState.Loading)
     val recipeListState: StateFlow<RecipeListState> = _recipeListState.asStateFlow()
 
     private val _recipeCache = mutableMapOf<String, Recipe>()
-    private var _metadataCache: List<RecipeMetadata>? = null
+    private var _metadataCache: List<RecipeListItem>? = null
 
     suspend fun loadRecipes(forceRefresh: Boolean = false) {
         // If we have cached data and not forcing refresh, use cache
@@ -34,20 +36,25 @@ class RecipeRepository(
                 if (files.isEmpty()) {
                     _recipeListState.value = RecipeListState.Empty
                 } else {
-                    val recipes = mutableListOf<RecipeMetadata>()
+                    val recipes = mutableListOf<RecipeListItem>()
 
                     files.forEach { file ->
                         try {
                             val content = dataSource.getFileContent(file.id)
                             if (content is DataSourceResult.Success) {
-                                val metadata = yamlParser.parseRecipeMetadata(
-                                    yamlContent = content.data,
-                                    fileId = file.id,
-                                    lastModified = file.modifiedTime,
-                                    fileName = file.name
-                                )
-                                if (metadata != null) {
-                                    recipes.add(metadata)
+                                try {
+                                    val recipe = RecipeYaml.parse(content.data)
+                                    val listItem = RecipeListItem.fromRecipe(
+                                        recipe = recipe,
+                                        fileId = file.id,
+                                        lastModified = file.modifiedTime
+                                    )
+                                    recipes.add(listItem)
+                                } catch (e: RecipeParseException) {
+                                    Logger.e(
+                                        "RecipeRepo",
+                                        "Failed to parse ${file.name}: ${e.message}"
+                                    )
                                 }
                             }
                         } catch (e: Exception) {
@@ -86,7 +93,7 @@ class RecipeRepository(
 
         // Check cache first
         _recipeCache[recipeId]?.let { cachedRecipe ->
-            Logger.d("RecipeRepo", "Recipe found in cache: ${cachedRecipe.title}")
+            Logger.d("RecipeRepo", "Recipe found in cache: ${cachedRecipe.metadata.title}")
             return RecipeResult.Success(cachedRecipe)
         }
 
@@ -97,18 +104,17 @@ class RecipeRepository(
                     "RecipeRepo",
                     "Loaded recipe content, parsing YAML (${result.data.length} chars)"
                 )
-                val recipe = yamlParser.parseRecipeYaml(
-                    yamlContent = result.data,
-                    fileId = recipeId,
-                    lastModified = "" // We'll get this from the file metadata
-                )
-                if (recipe != null) {
-                    Logger.d("RecipeRepo", "Successfully parsed recipe: ${recipe.title}")
+                try {
+                    val recipe = RecipeYaml.parse(result.data)
+                    Logger.d("RecipeRepo", "Successfully parsed recipe: ${recipe.metadata.title}")
                     _recipeCache[recipeId] = recipe
                     RecipeResult.Success(recipe)
-                } else {
-                    Logger.e("RecipeRepo", "Failed to parse recipe YAML")
-                    RecipeResult.Error("Failed to parse recipe data")
+                } catch (e: RecipeParseException) {
+                    Logger.e("RecipeRepo", "Failed to parse recipe YAML: ${e.message}")
+                    RecipeResult.Error("Failed to parse recipe data: ${e.message}")
+                } catch (e: Exception) {
+                    Logger.e("RecipeRepo", "Unexpected error parsing recipe: ${e.message}")
+                    RecipeResult.Error("Failed to parse recipe data: ${e.message}")
                 }
             }
 
@@ -137,18 +143,17 @@ class RecipeRepository(
         return when (val result = dataSource.getFileContent(recipeId)) {
             is DataSourceResult.Success -> {
                 Logger.d("RecipeRepo", "Loaded fresh recipe content (${result.data.length} chars)")
-                val recipe = yamlParser.parseRecipeYaml(
-                    yamlContent = result.data,
-                    fileId = recipeId,
-                    lastModified = ""
-                )
-                if (recipe != null) {
-                    Logger.d("RecipeRepo", "Successfully parsed refreshed recipe: ${recipe.title}")
+                try {
+                    val recipe = RecipeYaml.parse(result.data)
+                    Logger.d("RecipeRepo", "Successfully parsed refreshed recipe: ${recipe.metadata.title}")
                     _recipeCache[recipeId] = recipe
                     RecipeResult.Success(recipe)
-                } else {
-                    Logger.e("RecipeRepo", "Failed to parse refreshed recipe YAML")
-                    RecipeResult.Error("Failed to parse recipe data")
+                } catch (e: RecipeParseException) {
+                    Logger.e("RecipeRepo", "Failed to parse refreshed recipe YAML: ${e.message}")
+                    RecipeResult.Error("Failed to parse recipe data: ${e.message}")
+                } catch (e: Exception) {
+                    Logger.e("RecipeRepo", "Unexpected error parsing refreshed recipe: ${e.message}")
+                    RecipeResult.Error("Failed to parse recipe data: ${e.message}")
                 }
             }
             is DataSourceResult.Error -> {
@@ -161,7 +166,7 @@ class RecipeRepository(
         }
     }
 
-    fun searchRecipes(query: String): RecipeResult<List<RecipeMetadata>> {
+    fun searchRecipes(query: String): RecipeResult<List<RecipeListItem>> {
         return when (val currentState = _recipeListState.value) {
             is RecipeListState.Success -> {
                 val filteredRecipes = currentState.recipes.filter { recipe ->

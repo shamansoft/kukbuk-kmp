@@ -15,7 +15,6 @@ import net.shamansoft.kukbuk.recipe.RecipeDataSource
 import net.shamansoft.kukbuk.recipe.RecipeDetailViewModel
 import net.shamansoft.kukbuk.recipe.RecipeListViewModel
 import net.shamansoft.kukbuk.recipe.RecipeRepository
-import net.shamansoft.kukbuk.recipe.YamlRecipeParser
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
@@ -53,8 +52,7 @@ val localDevDataModule = module {
  * Recipe module - provides recipe-related dependencies
  */
 val recipeModule = module {
-    single { YamlRecipeParser() }
-    single { RecipeRepository(get(), get()) }
+    single { RecipeRepository(get()) }
 }
 
 /**

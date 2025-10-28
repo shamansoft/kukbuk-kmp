@@ -47,10 +47,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import net.shamansoft.kukbuk.recipe.Recipe
 import net.shamansoft.kukbuk.recipe.RecipeDetailState
 import net.shamansoft.kukbuk.recipe.RecipeDetailViewModel
 import net.shamansoft.kukbuk.util.RecipeImage
+import net.shamansoft.recipe.model.Recipe
+import net.shamansoft.recipe.model.Ingredient
+import net.shamansoft.recipe.model.Instruction
+import net.shamansoft.recipe.model.Nutrition
+import net.shamansoft.recipe.model.Storage
 
 /**
  * Recipe detail screen showing full recipe information
@@ -113,7 +117,7 @@ fun RecipeDetailScreen(
 @Composable
 private fun RecipeContent(recipe: Recipe) {
     // DEBUG: Log recipe data
-    net.shamansoft.kukbuk.util.Logger.d("RecipeDetailScreen", "Recipe: ${recipe.title}")
+    net.shamansoft.kukbuk.util.Logger.d("RecipeDetailScreen", "Recipe: ${recipe.metadata.title}")
     net.shamansoft.kukbuk.util.Logger.d("RecipeDetailScreen", "Instructions count: ${recipe.instructions.size}")
     net.shamansoft.kukbuk.util.Logger.d("RecipeDetailScreen", "Ingredients count: ${recipe.ingredients.size}")
     recipe.instructions.forEachIndexed { index, instruction ->
@@ -230,14 +234,12 @@ private fun IngredientsSection(recipe: Recipe) {
             color = MaterialTheme.colorScheme.primary
         )
 
-        // Servings info (if available)
-        recipe.servings?.let { servings ->
-            Text(
-                text = "Servings: $servings",
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        // Servings info
+        Text(
+            text = "Servings: ${recipe.metadata.servings}",
+            fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
         Spacer(modifier = Modifier.height(4.dp))
 
@@ -279,7 +281,7 @@ private fun IngredientsSection(recipe: Recipe) {
  * Ingredient row with amount, unit, and notes
  */
 @Composable
-private fun IngredientRow(ingredient: net.shamansoft.kukbuk.recipe.Ingredient) {
+private fun IngredientRow(ingredient: Ingredient) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -293,29 +295,61 @@ private fun IngredientRow(ingredient: net.shamansoft.kukbuk.recipe.Ingredient) {
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = ingredient.toDisplayString(),
+                text = buildIngredientDisplayString(ingredient),
                 fontSize = 18.sp,
                 lineHeight = 28.sp
             )
 
             // Show substitutions if available
-            if (ingredient.substitutions.isNotEmpty()) {
-                Text(
-                    text = "Alternative: ${ingredient.substitutions.first().item}",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                )
+            ingredient.substitutions?.let { subs ->
+                if (subs.isNotEmpty()) {
+                    Text(
+                        text = "Alternative: ${subs.first().item}",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    )
+                }
             }
         }
     }
 }
 
 /**
+ * Builds a display string for an ingredient
+ */
+private fun buildIngredientDisplayString(ingredient: Ingredient): String {
+    val parts = mutableListOf<String>()
+
+    val amount = ingredient.amount
+    val unit = ingredient.unit
+
+    if (amount != null && unit != null) {
+        parts.add("$amount $unit")
+    } else if (amount != null) {
+        parts.add(amount)
+    } else if (unit != null) {
+        parts.add(unit)
+    }
+
+    parts.add(ingredient.item)
+
+    ingredient.notes?.let { notes ->
+        parts.add("($notes)")
+    }
+
+    if (ingredient.optional) {
+        parts.add("(optional)")
+    }
+
+    return parts.joinToString(" ")
+}
+
+/**
  * Steps Section - Primary cooking instructions
  */
 @Composable
-private fun StepsSection(instructions: List<net.shamansoft.kukbuk.recipe.Instruction>) {
+private fun StepsSection(instructions: List<Instruction>) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -331,8 +365,8 @@ private fun StepsSection(instructions: List<net.shamansoft.kukbuk.recipe.Instruc
         Spacer(modifier = Modifier.height(4.dp))
 
         // Instructions List
-        instructions.forEach { instruction ->
-            InstructionStep(instruction = instruction)
+        instructions.forEachIndexed { index, instruction ->
+            InstructionStep(instruction = instruction, stepNumber = index + 1)
         }
     }
 }
@@ -341,7 +375,7 @@ private fun StepsSection(instructions: List<net.shamansoft.kukbuk.recipe.Instruc
  * Instruction step with time, temperature, and media
  */
 @Composable
-private fun InstructionStep(instruction: net.shamansoft.kukbuk.recipe.Instruction) {
+private fun InstructionStep(instruction: Instruction, stepNumber: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -363,7 +397,7 @@ private fun InstructionStep(instruction: net.shamansoft.kukbuk.recipe.Instructio
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = instruction.step.toString(),
+                    text = (instruction.step ?: stepNumber).toString(),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimary
@@ -422,11 +456,13 @@ private fun InstructionStep(instruction: net.shamansoft.kukbuk.recipe.Instructio
                 }
 
                 // Media Gallery (if media exists)
-                if (instruction.media.isNotEmpty()) {
-                    net.shamansoft.kukbuk.util.MediaGallery(
-                        media = instruction.media,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
+                instruction.media?.let { mediaList ->
+                    if (mediaList.isNotEmpty()) {
+                        net.shamansoft.kukbuk.util.MediaGallery(
+                            media = mediaList,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
                 }
             }
         }
@@ -446,8 +482,8 @@ private fun DescriptionSection(recipe: Recipe) {
 
         // Hero Image
         RecipeImage(
-            url = recipe.coverImage?.path ?: recipe.imageUrl,
-            contentDescription = "Recipe: ${recipe.title}",
+            url = recipe.metadata.coverImage?.path,
+            contentDescription = "Recipe: ${recipe.metadata.title}",
             modifier = Modifier
                 .fillMaxWidth()
                 .height(200.dp),
@@ -456,16 +492,16 @@ private fun DescriptionSection(recipe: Recipe) {
 
         // Title
         Text(
-            text = recipe.title,
+            text = recipe.metadata.title,
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,
             lineHeight = 40.sp
         )
 
         // Description
-        recipe.description?.let { description ->
+        if (recipe.description.isNotBlank()) {
             Text(
-                text = description,
+                text = recipe.description,
                 fontSize = 16.sp,
                 lineHeight = 24.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -478,34 +514,28 @@ private fun DescriptionSection(recipe: Recipe) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            recipe.prepTime?.let { prepTime ->
+            recipe.metadata.prepTime?.let { prepTime ->
                 MetadataChip(label = "Prep", value = prepTime)
             }
 
-            recipe.cookTime?.let { cookTime ->
+            recipe.metadata.cookTime?.let { cookTime ->
                 MetadataChip(label = "Cook", value = cookTime)
             }
 
-            recipe.totalTime?.let { totalTime ->
+            recipe.metadata.totalTime?.let { totalTime ->
                 MetadataChip(label = "Total", value = totalTime)
             }
 
-            recipe.difficulty?.let { difficulty ->
-                MetadataChip(label = "Difficulty", value = difficulty)
-            }
-
-            recipe.cuisine?.let { cuisine ->
-                MetadataChip(label = "Cuisine", value = cuisine)
-            }
+            MetadataChip(label = "Difficulty", value = recipe.metadata.difficulty)
         }
 
         // Categories/Tags
-        if (recipe.categories.isNotEmpty()) {
+        if (recipe.metadata.category.isNotEmpty()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                recipe.categories.forEach { category ->
+                recipe.metadata.category.forEach { category ->
                     SuggestionChip(
                         onClick = { },
                         label = {
@@ -517,12 +547,12 @@ private fun DescriptionSection(recipe: Recipe) {
                     )
                 }
             }
-        } else if (recipe.tags.isNotEmpty()) {
+        } else if (recipe.metadata.tags.isNotEmpty()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                recipe.tags.forEach { tag ->
+                recipe.metadata.tags.forEach { tag ->
                     SuggestionChip(
                         onClick = { },
                         label = {
@@ -566,25 +596,17 @@ private fun CreditsSection(recipe: Recipe) {
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                recipe.author?.let { author ->
+                recipe.metadata.author?.let { author ->
                     CreditsRow(label = "Author", value = author)
                 }
 
-                recipe.sourceUrl?.let { sourceUrl ->
-                    CreditsRow(label = "Source", value = sourceUrl)
+                recipe.metadata.source?.let { source ->
+                    CreditsRow(label = "Source", value = source)
                 }
 
-                recipe.dateCreated?.let { dateCreated ->
-                    CreditsRow(label = "Date Created", value = dateCreated)
-                }
+                CreditsRow(label = "Date Created", value = recipe.metadata.dateCreated.toString())
 
-                recipe.lastModified?.let { lastModified ->
-                    CreditsRow(label = "Last Modified", value = formatDate(lastModified))
-                }
-
-                recipe.language?.let { language ->
-                    CreditsRow(label = "Language", value = language)
-                }
+                CreditsRow(label = "Language", value = recipe.metadata.language)
             }
         }
     }
@@ -615,7 +637,7 @@ private fun CreditsRow(label: String, value: String) {
  * Nutrition Info Section Content
  */
 @Composable
-private fun NutritionSectionContent(nutrition: net.shamansoft.kukbuk.recipe.NutritionInfo) {
+private fun NutritionSectionContent(nutrition: Nutrition) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -643,27 +665,27 @@ private fun NutritionSectionContent(nutrition: net.shamansoft.kukbuk.recipe.Nutr
                 }
 
                 nutrition.protein?.let { protein ->
-                    NutritionRow(label = "Protein", value = protein)
+                    NutritionRow(label = "Protein", value = "${protein}g")
                 }
 
-                nutrition.carbs?.let { carbs ->
-                    NutritionRow(label = "Carbohydrates", value = carbs)
+                nutrition.carbohydrates?.let { carbs ->
+                    NutritionRow(label = "Carbohydrates", value = "${carbs}g")
                 }
 
                 nutrition.fat?.let { fat ->
-                    NutritionRow(label = "Fat", value = fat)
+                    NutritionRow(label = "Fat", value = "${fat}g")
                 }
 
                 nutrition.fiber?.let { fiber ->
-                    NutritionRow(label = "Fiber", value = fiber)
+                    NutritionRow(label = "Fiber", value = "${fiber}g")
                 }
 
                 nutrition.sugar?.let { sugar ->
-                    NutritionRow(label = "Sugar", value = sugar)
+                    NutritionRow(label = "Sugar", value = "${sugar}g")
                 }
 
                 nutrition.sodium?.let { sodium ->
-                    NutritionRow(label = "Sodium", value = sodium)
+                    NutritionRow(label = "Sodium", value = "${sodium}mg")
                 }
             }
         }
@@ -692,7 +714,7 @@ private fun NutritionRow(label: String, value: String) {
  * Storage Section Content
  */
 @Composable
-private fun StorageSectionContent(storage: net.shamansoft.kukbuk.recipe.StorageInfo) {
+private fun StorageSectionContent(storage: Storage) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(

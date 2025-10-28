@@ -64,7 +64,7 @@ fun AppContent() {
                         viewModel = recipeListViewModel,
                         onRecipeClick = { recipe ->
                             currentScreen = Screen.RecipeDetail(
-                                recipeId = recipe.driveFileId,
+                                recipeId = recipe.id,
                                 recipeTitle = recipe.title
                             )
                         }

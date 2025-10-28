@@ -19,8 +19,8 @@ class RecipeListViewModel(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
     
-    private val _searchResults = MutableStateFlow<List<RecipeMetadata>>(emptyList())
-    val searchResults: StateFlow<List<RecipeMetadata>> = _searchResults.asStateFlow()
+    private val _searchResults = MutableStateFlow<List<RecipeListItem>>(emptyList())
+    val searchResults: StateFlow<List<RecipeListItem>> = _searchResults.asStateFlow()
     
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
@@ -81,7 +81,7 @@ class RecipeListViewModel(
         _isSearching.value = false
     }
     
-    fun getDisplayedRecipes(): List<RecipeMetadata> {
+    fun getDisplayedRecipes(): List<RecipeListItem> {
         return if (_searchQuery.value.isNotBlank()) {
             _searchResults.value
         } else {
