@@ -167,6 +167,62 @@ Phase 1 implements a single-screen scrollable view optimized for mobile cooking.
 
 ---
 
+### US-2.1a: Interactive Ingredient Checkboxes & Serving Scaling
+**As a user cooking from a recipe**, I want to check off ingredients as I add them and adjust serving sizes so that I can keep track of what I've added and scale quantities easily.
+
+**Acceptance Criteria:**
+- [ ] Checkbox next to each ingredient that persists during cooking session
+- [ ] "Check All" / "Uncheck All" buttons for each ingredient group
+- [ ] Serving size counter with +/- buttons at top of ingredients section
+- [ ] Ingredient quantities automatically scale when serving size changes
+- [ ] Visual feedback when ingredients are checked (strikethrough or dimmed)
+- [ ] Checkbox state preserved when navigating away and back to recipe
+
+**Technical Tasks:**
+- [ ] Create ingredient checkbox state management in ViewModel
+- [ ] Add serving size state and quantity scaling logic
+- [ ] Update IngredientRow composable to include checkbox
+- [ ] Implement serving counter UI component
+- [ ] Add state persistence (save to ViewModel, optionally DataStore)
+- [ ] Create quantity recalculation function for ingredient amounts
+- [ ] Handle fractional quantities (1/2 cup, 1/4 tsp, etc.)
+
+**Definition of Done:**
+- Checkboxes work smoothly without lag
+- Serving scaling correctly adjusts all ingredient quantities
+- State persists during cooking session
+- Works on all platforms (iOS, Android, Web)
+
+---
+
+### US-2.1b: Step Progress Tracking
+**As a user following a recipe**, I want to mark steps as complete and track my progress so that I don't lose my place while cooking.
+
+**Acceptance Criteria:**
+- [ ] Checkbox or "Mark Complete" button on each step
+- [ ] Progress indicator showing "Step X of Y"
+- [ ] Visual feedback for completed steps (checkmark, different color)
+- [ ] Auto-scroll to next uncompleted step when marking step complete
+- [ ] "Previous Step" / "Next Step" navigation buttons
+- [ ] Progress state preserved when navigating away and back
+
+**Technical Tasks:**
+- [ ] Create step completion state management in ViewModel
+- [ ] Add completion checkbox/button to StepCard composable
+- [ ] Implement progress indicator component
+- [ ] Add step navigation (prev/next) functionality
+- [ ] Auto-scroll logic to next uncompleted step
+- [ ] State persistence during cooking session
+- [ ] Visual styling for completed vs active steps
+
+**Definition of Done:**
+- Step completion works smoothly
+- Progress tracking is clear and accurate
+- Navigation between steps is intuitive
+- Works on all platforms (iOS, Android, Web)
+
+---
+
 ### US-2.2: Shopping List Export
 **As a user**, I want to export recipe ingredients to a shopping list so that I can purchase items before cooking.
 

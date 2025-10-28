@@ -1,6 +1,12 @@
 package net.shamansoft.kukbuk
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +21,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -102,6 +112,14 @@ fun RecipeDetailScreen(
 
 @Composable
 private fun RecipeContent(recipe: Recipe) {
+    // DEBUG: Log recipe data
+    net.shamansoft.kukbuk.util.Logger.d("RecipeDetailScreen", "Recipe: ${recipe.title}")
+    net.shamansoft.kukbuk.util.Logger.d("RecipeDetailScreen", "Instructions count: ${recipe.instructions.size}")
+    net.shamansoft.kukbuk.util.Logger.d("RecipeDetailScreen", "Ingredients count: ${recipe.ingredients.size}")
+    recipe.instructions.forEachIndexed { index, instruction ->
+        net.shamansoft.kukbuk.util.Logger.d("RecipeDetailScreen", "Instruction $index: step=${instruction.step}, desc=${instruction.description.take(50)}")
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp)
@@ -130,32 +148,52 @@ private fun RecipeContent(recipe: Recipe) {
             CreditsSection(recipe = recipe)
         }
 
-        // 5. Nutrition Info Section (if available)
+        // 5. Nutrition Info Section (if available) - Collapsible
         recipe.nutrition?.let { nutrition ->
             item {
-                NutritionSection(nutrition = nutrition)
+                CollapsibleSection(
+                    title = "Nutrition Information",
+                    initiallyExpanded = false
+                ) {
+                    NutritionSectionContent(nutrition = nutrition)
+                }
             }
         }
 
-        // 6. Storage Instructions (if available)
+        // 6. Storage Instructions (if available) - Collapsible
         recipe.storage?.let { storage ->
             item {
-                StorageSection(storage = storage)
+                CollapsibleSection(
+                    title = "Storage Instructions",
+                    initiallyExpanded = false
+                ) {
+                    StorageSectionContent(storage = storage)
+                }
             }
         }
 
-        // 7. Equipment List (if available)
+        // 7. Equipment List (if available) - Collapsible
         if (recipe.equipment.isNotEmpty()) {
             item {
-                EquipmentSection(equipment = recipe.equipment)
+                CollapsibleSection(
+                    title = "Equipment Needed",
+                    initiallyExpanded = false
+                ) {
+                    EquipmentSectionContent(equipment = recipe.equipment)
+                }
             }
         }
 
-        // 8. Notes Section
+        // 8. Notes Section - Collapsible
         recipe.notes?.let { notes ->
             if (notes.isNotBlank()) {
                 item {
-                    NotesSection(notes = notes)
+                    CollapsibleSection(
+                        title = "Notes",
+                        initiallyExpanded = false
+                    ) {
+                        NotesSectionContent(notes = notes)
+                    }
                 }
             }
         }
@@ -300,7 +338,7 @@ private fun StepsSection(instructions: List<net.shamansoft.kukbuk.recipe.Instruc
 }
 
 /**
- * Instruction step with time and temperature
+ * Instruction step with time, temperature, and media
  */
 @Composable
 private fun InstructionStep(instruction: net.shamansoft.kukbuk.recipe.Instruction) {
@@ -381,6 +419,14 @@ private fun InstructionStep(instruction: net.shamansoft.kukbuk.recipe.Instructio
                             )
                         }
                     }
+                }
+
+                // Media Gallery (if media exists)
+                if (instruction.media.isNotEmpty()) {
+                    net.shamansoft.kukbuk.util.MediaGallery(
+                        media = instruction.media,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
                 }
             }
         }
@@ -566,23 +612,14 @@ private fun CreditsRow(label: String, value: String) {
 }
 
 /**
- * Nutrition Info Section
+ * Nutrition Info Section Content
  */
 @Composable
-private fun NutritionSection(nutrition: net.shamansoft.kukbuk.recipe.NutritionInfo) {
+private fun NutritionSectionContent(nutrition: net.shamansoft.kukbuk.recipe.NutritionInfo) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Nutrition Information",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-
         nutrition.servingSize?.let { servingSize ->
             Text(
                 text = "Per serving: $servingSize",
@@ -652,44 +689,30 @@ private fun NutritionRow(label: String, value: String) {
 }
 
 /**
- * Storage Section
+ * Storage Section Content
  */
 @Composable
-private fun StorageSection(storage: net.shamansoft.kukbuk.recipe.StorageInfo) {
-    Column(
+private fun StorageSectionContent(storage: net.shamansoft.kukbuk.recipe.StorageInfo) {
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Storage Instructions",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                storage.refrigerator?.let { fridge ->
-                    StorageRow(icon = "❄️", label = "Refrigerator", value = fridge)
-                }
+            storage.refrigerator?.let { fridge ->
+                StorageRow(icon = "❄️", label = "Refrigerator", value = fridge)
+            }
 
-                storage.freezer?.let { freezer ->
-                    StorageRow(icon = "🧊", label = "Freezer", value = freezer)
-                }
+            storage.freezer?.let { freezer ->
+                StorageRow(icon = "🧊", label = "Freezer", value = freezer)
+            }
 
-                storage.roomTemperature?.let { room ->
-                    StorageRow(icon = "🌡️", label = "Room Temperature", value = room)
-                }
+            storage.roomTemperature?.let { room ->
+                StorageRow(icon = "🌡️", label = "Room Temperature", value = room)
             }
         }
     }
@@ -722,49 +745,35 @@ private fun StorageRow(icon: String, label: String, value: String) {
 }
 
 /**
- * Equipment Section
+ * Equipment Section Content
  */
 @Composable
-private fun EquipmentSection(equipment: List<String>) {
-    Column(
+private fun EquipmentSectionContent(equipment: List<String>) {
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "Equipment Needed",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                equipment.forEach { item ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "🔧",
-                            fontSize = 16.sp
-                        )
-                        Text(
-                            text = item,
-                            fontSize = 16.sp,
-                            lineHeight = 24.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+            equipment.forEach { item ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "🔧",
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        text = item,
+                        fontSize = 16.sp,
+                        lineHeight = 24.sp,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
@@ -772,32 +781,69 @@ private fun EquipmentSection(equipment: List<String>) {
 }
 
 @Composable
-private fun NotesSection(notes: String) {
+private fun NotesSectionContent(notes: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        )
+    ) {
+        Text(
+            text = notes,
+            fontSize = 16.sp,
+            lineHeight = 24.sp,
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+
+/**
+ * Collapsible section with expand/collapse animation
+ */
+@Composable
+private fun CollapsibleSection(
+    title: String,
+    initiallyExpanded: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    var isExpanded by remember { mutableStateOf(initiallyExpanded) }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        Text(
-            text = "Notes",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer
-            )
+        // Header with expand/collapse button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { isExpanded = !isExpanded }
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = notes,
-                fontSize = 16.sp,
-                lineHeight = 24.sp,
-                modifier = Modifier.padding(16.dp)
+                text = title,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
+
+            Text(
+                text = if (isExpanded) "▲" else "▼",
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        // Collapsible content
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
+        ) {
+            content()
         }
     }
 }

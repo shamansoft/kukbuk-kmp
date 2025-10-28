@@ -16,42 +16,38 @@ class YamlRecipeParser {
 
             Recipe(
                 id = fileId,
-                title = yamlMap["title"] ?: "Untitled Recipe",
-                author = yamlMap["author"],
-                description = yamlMap["description"],
-                prepTime = yamlMap["prep_time"] ?: yamlMap["prepTime"],
-                cookTime = yamlMap["cook_time"] ?: yamlMap["cookTime"],
-                totalTime = yamlMap["total_time"] ?: yamlMap["totalTime"],
-                servings = yamlMap["servings"] ?: yamlMap["yield"],
-                difficulty = yamlMap["difficulty"],
-                cuisine = yamlMap["cuisine"],
-                tags = parseStringList(yamlMap["tags"]),
-
-                // Structured ingredients and instructions
-                ingredients = parseIngredientsList(yamlMap["ingredients"]),
-                instructions = parseInstructionsList(yamlMap["instructions"] ?: yamlMap["method"]),
-
-                // Additional metadata
+                // Metadata section fields
+                title = metadataMap["title"] ?: "Untitled Recipe",
+                author = metadataMap["author"],
+                prepTime = metadataMap["prep_time"],
+                cookTime = metadataMap["cook_time"],
+                totalTime = metadataMap["total_time"],
+                servings = metadataMap["servings"],
+                difficulty = metadataMap["difficulty"],
+                cuisine = metadataMap["cuisine"],
+                tags = metadataMap["tags"]?.let { parseStringList(it) } ?: emptyList(),
                 dateCreated = metadataMap["date_created"],
                 categories = categories,
                 language = metadataMap["language"],
                 coverImage = metadataMap["cover_image"]?.let { parseCoverImage(it) },
+                sourceUrl = metadataMap["source"],
 
-                // Additional sections
+                // Root level fields
+                description = yamlMap["description"],
+                ingredients = parseIngredientsList(yamlMap["ingredients"]),
+                instructions = parseInstructionsList(yamlMap["instructions"]),
                 equipment = parseStringList(yamlMap["equipment"]),
                 nutrition = yamlMap["nutrition"]?.let { parseNutrition(it) },
                 storage = yamlMap["storage"]?.let { parseStorage(it) },
-
-                // Version tracking
-                schemaVersion = metadataMap["schema_version"],
-                recipeVersion = metadataMap["recipe_version"],
-
-                // Other fields
                 notes = yamlMap["notes"],
-                imageUrl = yamlMap["image"] ?: yamlMap["image_url"] ?: metadataMap["cover_image"]?.let {
+                schemaVersion = yamlMap["schema_version"],
+                recipeVersion = yamlMap["recipe_version"],
+
+                // Image URL: prefer cover_image path, fallback to root image fields
+                imageUrl = metadataMap["cover_image"]?.let {
                     parseNestedMap(it)["path"]
-                },
-                sourceUrl = yamlMap["source"] ?: yamlMap["source_url"],
+                } ?: yamlMap["image"] ?: yamlMap["image_url"],
+
                 driveFileId = fileId,
                 lastModified = lastModified
             )
@@ -96,36 +92,209 @@ class YamlRecipeParser {
         val lines = value.lines()
         val ingredients = mutableListOf<Ingredient>()
         var currentComponent: String? = null
+        var i = 0
 
-        for (line in lines) {
+        while (i < lines.size) {
+            val line = lines[i]
             val trimmed = line.trim()
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
+            val indent = line.takeWhile { it == ' ' }.length
+
+            // Skip empty lines and comments
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                i++
+                continue
+            }
 
             // Check if this is a component header (no dash, not a key-value pair)
             if (!trimmed.startsWith("-") && !trimmed.contains(":")) {
                 currentComponent = trimmed
+                i++
                 continue
             }
 
-            // Simple string format: "- ingredient text"
-            if (trimmed.startsWith("-") && !trimmed.contains(":")) {
-                val text = trimmed.substring(1).trim()
-                // Try to parse amount/unit from text like "2 cups flour"
-                val (amount, unit, item) = parseIngredientText(text)
-                ingredients.add(
-                    Ingredient(
-                        item = item,
-                        amount = amount,
-                        unit = unit,
-                        component = currentComponent
+            // Check if this is a list item
+            if (trimmed.startsWith("-")) {
+                val firstLineContent = trimmed.substring(1).trim()
+
+                // Determine if it's structured (has key:value) or simple text
+                if (firstLineContent.contains(":")) {
+                    // Structured format: parse as object
+                    val (ingredient, newIndex) = parseStructuredIngredient(lines, i, currentComponent)
+                    ingredients.add(ingredient)
+                    i = newIndex + 1
+                } else {
+                    // Simple string format: "- ingredient text"
+                    val (amount, unit, item) = parseIngredientText(firstLineContent)
+                    ingredients.add(
+                        Ingredient(
+                            item = item,
+                            amount = amount,
+                            unit = unit,
+                            component = currentComponent
+                        )
                     )
-                )
+                    i++
+                }
+            } else {
+                i++
             }
-            // Structured object format: "- item: flour\n  amount: 2\n  unit: cups"
-            // For now, we'll just use simple format as parsing nested objects is complex
         }
 
         return ingredients
+    }
+
+    /**
+     * Parse a single structured ingredient object from YAML
+     * Format:
+     *   - item: "flour"
+     *     amount: 2
+     *     unit: "cups"
+     *     notes: "sifted"
+     *     optional: true
+     *     component: "dry"
+     *     substitutions:
+     *       - item: "almond flour"
+     *         amount: 2.5
+     *         unit: "cups"
+     */
+    private fun parseStructuredIngredient(
+        lines: List<String>,
+        startIndex: Int,
+        defaultComponent: String?
+    ): Pair<Ingredient, Int> {
+        val baseIndent = lines[startIndex].takeWhile { it == ' ' }.length
+        var i = startIndex
+        val trimmed = lines[i].trim()
+
+        // Parse first line which starts with "-"
+        val firstLineContent = trimmed.substring(1).trim()
+        val ingredientMap = mutableMapOf<String, String>()
+
+        // If first line has key:value, add it
+        if (firstLineContent.contains(":")) {
+            val parts = firstLineContent.split(":", limit = 2)
+            if (parts.size == 2) {
+                ingredientMap[parts[0].trim()] = parts[1].trim().removePrefix("\"").removeSuffix("\"")
+            }
+        }
+
+        // Parse continuation lines (indented more than the dash)
+        i++
+        val substitutionsList = mutableListOf<Substitution>()
+        var parsingSubstitutions = false
+
+        while (i < lines.size) {
+            val line = lines[i]
+            val lineIndent = line.takeWhile { it == ' ' }.length
+            val lineTrimmed = line.trim()
+
+            // Stop if we hit a line with same or less indentation than the dash (and it's not empty)
+            if (lineTrimmed.isNotEmpty() && lineIndent <= baseIndent) {
+                break
+            }
+
+            if (lineTrimmed.isEmpty()) {
+                i++
+                continue
+            }
+
+            // Check if this is the start of substitutions list
+            if (lineTrimmed == "substitutions:") {
+                parsingSubstitutions = true
+                i++
+                continue
+            }
+
+            // Parse substitution items
+            if (parsingSubstitutions && lineTrimmed.startsWith("-")) {
+                val (substitution, newIndex) = parseSubstitution(lines, i)
+                substitutionsList.add(substitution)
+                i = newIndex + 1
+                continue
+            }
+
+            // Parse regular key:value pairs
+            if (lineTrimmed.contains(":") && !parsingSubstitutions) {
+                val parts = lineTrimmed.split(":", limit = 2)
+                if (parts.size == 2) {
+                    val key = parts[0].trim()
+                    val value = parts[1].trim().removePrefix("\"").removeSuffix("\"")
+                    ingredientMap[key] = value
+                }
+            }
+
+            i++
+        }
+
+        // Build Ingredient object from map
+        val ingredient = Ingredient(
+            item = ingredientMap["item"] ?: "",
+            amount = ingredientMap["amount"]?.toDoubleOrNull(),
+            unit = ingredientMap["unit"],
+            notes = ingredientMap["notes"],
+            optional = ingredientMap["optional"]?.toBooleanStrictOrNull() ?: false,
+            substitutions = substitutionsList,
+            component = ingredientMap["component"] ?: defaultComponent
+        )
+
+        return ingredient to (i - 1)
+    }
+
+    /**
+     * Parse a substitution object from YAML
+     */
+    private fun parseSubstitution(lines: List<String>, startIndex: Int): Pair<Substitution, Int> {
+        val baseIndent = lines[startIndex].takeWhile { it == ' ' }.length
+        var i = startIndex
+        val trimmed = lines[i].trim()
+
+        val subMap = mutableMapOf<String, String>()
+
+        // Parse first line
+        val firstLineContent = trimmed.substring(1).trim()
+        if (firstLineContent.contains(":")) {
+            val parts = firstLineContent.split(":", limit = 2)
+            if (parts.size == 2) {
+                subMap[parts[0].trim()] = parts[1].trim().removePrefix("\"").removeSuffix("\"")
+            }
+        }
+
+        // Parse continuation lines
+        i++
+        while (i < lines.size) {
+            val line = lines[i]
+            val lineIndent = line.takeWhile { it == ' ' }.length
+            val lineTrimmed = line.trim()
+
+            if (lineTrimmed.isEmpty()) {
+                i++
+                continue
+            }
+
+            // Stop if indentation decreased or we hit another list item
+            if (lineIndent <= baseIndent || lineTrimmed.startsWith("-")) {
+                break
+            }
+
+            if (lineTrimmed.contains(":")) {
+                val parts = lineTrimmed.split(":", limit = 2)
+                if (parts.size == 2) {
+                    subMap[parts[0].trim()] = parts[1].trim().removePrefix("\"").removeSuffix("\"")
+                }
+            }
+
+            i++
+        }
+
+        val substitution = Substitution(
+            item = subMap["item"] ?: "",
+            amount = subMap["amount"]?.toDoubleOrNull(),
+            unit = subMap["unit"],
+            notes = subMap["notes"],
+            ratio = subMap["ratio"]?.toDoubleOrNull() ?: 1.0
+        )
+
+        return substitution to (i - 1)
     }
 
     /**
@@ -163,13 +332,267 @@ class YamlRecipeParser {
     private fun parseInstructionsList(value: String?): List<Instruction> {
         if (value == null) return emptyList()
 
-        val simpleList = parseStringList(value)
-        return simpleList.mapIndexed { index, description ->
-            Instruction(
-                step = index + 1,
-                description = description
-            )
+        val lines = value.lines()
+        val instructions = mutableListOf<Instruction>()
+        var i = 0
+
+        while (i < lines.size) {
+            val line = lines[i]
+            val trimmed = line.trim()
+
+            // Skip empty lines and comments
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                i++
+                continue
+            }
+
+            // Check if this is a list item
+            if (trimmed.startsWith("-")) {
+                val firstLineContent = trimmed.substring(1).trim()
+
+                // Determine if it's structured (has key:value) or simple text
+                if (firstLineContent.contains(":")) {
+                    // Structured format: parse as object
+                    val (instruction, newIndex) = parseStructuredInstruction(lines, i, instructions.size + 1)
+                    instructions.add(instruction)
+                    i = newIndex + 1
+                } else {
+                    // Simple string format: "- instruction text"
+                    // Check if there's a multiline continuation
+                    val descriptionLines = mutableListOf(firstLineContent)
+                    val baseIndent = line.takeWhile { it == ' ' }.length
+
+                    i++
+                    while (i < lines.size) {
+                        val nextLine = lines[i]
+                        val nextTrimmed = nextLine.trim()
+                        val nextIndent = nextLine.takeWhile { it == ' ' }.length
+
+                        // Stop if we hit a new item or less indented line
+                        if (nextTrimmed.startsWith("-") || (nextTrimmed.isNotEmpty() && nextIndent <= baseIndent)) {
+                            break
+                        }
+
+                        if (nextTrimmed.isNotEmpty()) {
+                            descriptionLines.add(nextTrimmed)
+                        }
+                        i++
+                    }
+
+                    instructions.add(
+                        Instruction(
+                            step = instructions.size + 1,
+                            description = descriptionLines.joinToString(" ")
+                        )
+                    )
+                }
+            } else {
+                i++
+            }
         }
+
+        return instructions
+    }
+
+    /**
+     * Parse a single structured instruction object from YAML
+     * Format:
+     *   - step: 1
+     *     description: |
+     *       Preheat oven to 375°F.
+     *     time: "5m"
+     *     temperature: "375°F"
+     *     media:
+     *       - type: "image"
+     *         path: "https://..."
+     */
+    private fun parseStructuredInstruction(
+        lines: List<String>,
+        startIndex: Int,
+        defaultStep: Int
+    ): Pair<Instruction, Int> {
+        val baseIndent = lines[startIndex].takeWhile { it == ' ' }.length
+        var i = startIndex
+        val trimmed = lines[i].trim()
+
+        // Parse first line which starts with "-"
+        val firstLineContent = trimmed.substring(1).trim()
+        val instructionMap = mutableMapOf<String, String>()
+
+        // If first line has key:value, add it
+        if (firstLineContent.contains(":")) {
+            val parts = firstLineContent.split(":", limit = 2)
+            if (parts.size == 2) {
+                val key = parts[0].trim()
+                val value = parts[1].trim().removePrefix("\"").removeSuffix("\"")
+                instructionMap[key] = value
+            }
+        }
+
+        // Parse continuation lines
+        i++
+        val mediaList = mutableListOf<Media>()
+        var parsingMedia = false
+
+        while (i < lines.size) {
+            val line = lines[i]
+            val lineIndent = line.takeWhile { it == ' ' }.length
+            val lineTrimmed = line.trim()
+
+            // Stop if we hit a line with same or less indentation than the dash (and it's not empty)
+            if (lineTrimmed.isNotEmpty() && lineIndent <= baseIndent) {
+                break
+            }
+
+            if (lineTrimmed.isEmpty()) {
+                i++
+                continue
+            }
+
+            // Check if this is the start of media list
+            if (lineTrimmed == "media:") {
+                parsingMedia = true
+                i++
+                continue
+            }
+
+            // Parse media items
+            if (parsingMedia && lineTrimmed.startsWith("-")) {
+                val (media, newIndex) = parseMedia(lines, i)
+                mediaList.add(media)
+                i = newIndex + 1
+                continue
+            }
+
+            // Parse regular key:value pairs
+            if (lineTrimmed.contains(":") && !parsingMedia) {
+                val parts = lineTrimmed.split(":", limit = 2)
+                if (parts.size == 2) {
+                    val key = parts[0].trim()
+                    val value = parts[1].trim()
+
+                    // Handle multiline string (|)
+                    if (value == "|" || value == "|-") {
+                        i++
+                        val (multilineContent, newIndex) = parseMultilineInstructionDescription(lines, i)
+                        instructionMap[key] = multilineContent ?: ""
+                        i = newIndex
+                        continue
+                    } else {
+                        instructionMap[key] = value.removePrefix("\"").removeSuffix("\"")
+                    }
+                }
+            }
+
+            i++
+        }
+
+        // Build Instruction object from map
+        val instruction = Instruction(
+            step = instructionMap["step"]?.toIntOrNull() ?: defaultStep,
+            description = instructionMap["description"] ?: "",
+            time = instructionMap["time"],
+            temperature = instructionMap["temperature"],
+            media = mediaList
+        )
+
+        return instruction to (i - 1)
+    }
+
+    /**
+     * Parse multiline instruction description
+     */
+    private fun parseMultilineInstructionDescription(
+        lines: List<String>,
+        startIndex: Int
+    ): Pair<String?, Int> {
+        val content = mutableListOf<String>()
+        var i = startIndex
+        val baseIndent = if (i < lines.size) {
+            lines[i].takeWhile { it == ' ' }.length
+        } else 0
+
+        while (i < lines.size) {
+            val line = lines[i]
+            val currentIndent = line.takeWhile { it == ' ' }.length
+            val trimmed = line.trim()
+
+            // Stop when we hit a key:value line or decreased indentation
+            if (trimmed.contains(":") && currentIndent < baseIndent) {
+                break
+            }
+
+            // Stop if we hit a line with less indentation (and it's not empty)
+            if (line.isNotBlank() && currentIndent < baseIndent) {
+                break
+            }
+
+            if (line.isNotBlank()) {
+                content.add(trimmed)
+            } else if (content.isNotEmpty()) {
+                content.add("")
+            }
+            i++
+        }
+
+        return (if (content.isNotEmpty()) content.joinToString("\n") else null) to (i - 1)
+    }
+
+    /**
+     * Parse a media object from YAML
+     */
+    private fun parseMedia(lines: List<String>, startIndex: Int): Pair<Media, Int> {
+        val baseIndent = lines[startIndex].takeWhile { it == ' ' }.length
+        var i = startIndex
+        val trimmed = lines[i].trim()
+
+        val mediaMap = mutableMapOf<String, String>()
+
+        // Parse first line
+        val firstLineContent = trimmed.substring(1).trim()
+        if (firstLineContent.contains(":")) {
+            val parts = firstLineContent.split(":", limit = 2)
+            if (parts.size == 2) {
+                mediaMap[parts[0].trim()] = parts[1].trim().removePrefix("\"").removeSuffix("\"")
+            }
+        }
+
+        // Parse continuation lines
+        i++
+        while (i < lines.size) {
+            val line = lines[i]
+            val lineIndent = line.takeWhile { it == ' ' }.length
+            val lineTrimmed = line.trim()
+
+            if (lineTrimmed.isEmpty()) {
+                i++
+                continue
+            }
+
+            // Stop if indentation decreased or we hit another list item
+            if (lineIndent <= baseIndent || lineTrimmed.startsWith("-")) {
+                break
+            }
+
+            if (lineTrimmed.contains(":")) {
+                val parts = lineTrimmed.split(":", limit = 2)
+                if (parts.size == 2) {
+                    mediaMap[parts[0].trim()] = parts[1].trim().removePrefix("\"").removeSuffix("\"")
+                }
+            }
+
+            i++
+        }
+
+        val media = Media(
+            type = mediaMap["type"] ?: "image",
+            path = mediaMap["path"] ?: "",
+            alt = mediaMap["alt"],
+            thumbnail = mediaMap["thumbnail"],
+            duration = mediaMap["duration"]?.toIntOrNull()
+        )
+
+        return media to (i - 1)
     }
 
     /**

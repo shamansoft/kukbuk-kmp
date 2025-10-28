@@ -14,12 +14,16 @@ actual fun getLocalRecipesPath(): String? {
     return null
 }
 
+// Check if running on localhost (debug mode)
+private val isLocalhost: Boolean = js("typeof window !== 'undefined' && window.location.hostname === 'localhost'") as Boolean
+
 actual fun isDebugBuild(): Boolean {
     // In WASM, we can check the build mode
-    // For now, always return false (or implement based on window.location)
-    return js("typeof window !== 'undefined' && window.location.hostname === 'localhost'") as Boolean
+    return isLocalhost
 }
 
 actual fun getPlatformFileSystem(): okio.FileSystem {
-    return okio.FileSystem.SYSTEM
+    // WASM doesn't have system filesystem access
+    // Use in-memory filesystem for WASM
+    return okio.fakefilesystem.FakeFileSystem()
 }
