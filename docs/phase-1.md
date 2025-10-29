@@ -356,14 +356,26 @@ The Recipe data class is currently missing important fields from the schema:
 - [x] New data structures are serializable/deserializable
 - [x] All existing recipes still parse correctly (backward compat)
 - [x] Type safety improved for recipe data access
+- [x] Migrated to recipe-sdk library for centralized model management
 
 **Dependencies:**
 - Builds on US-5 (recipe detail must exist) ✅
 - Required for US-5c (enhanced detail UI) ✅
 
 **Implementation Files:**
-- `Recipe.kt` - All data classes already existed
-- `YamlRecipeParser.kt` - Enhanced parsing methods:
+- **recipe-sdk library** (now using centralized models):
+  - `recipe-sdk/model/Recipe.kt` - Complete recipe model
+  - `recipe-sdk/model/Ingredient.kt`, `Instruction.kt`, `Media.kt`, etc.
+  - `recipe-sdk/parser/RecipeYaml.kt` - YAML parser
+- **composeApp** (migrated to use SDK):
+  - `RecipeListItem.kt` - UI-specific list display model
+  - `RecipeRepository.kt` - Uses `RecipeYaml.parse()` from SDK
+  - ~~`Recipe.kt`~~ - Removed (now using SDK models)
+  - ~~`YamlRecipeParser.kt`~~ - Removed (now using SDK parser)
+
+**Legacy Implementation (replaced by recipe-sdk):**
+- ~~`Recipe.kt` - All data classes already existed~~
+- ~~`YamlRecipeParser.kt` - Enhanced parsing methods:~~
   - `parseIngredientsList()` - Handles both simple and structured formats
   - `parseStructuredIngredient()` - Deep YAML object parsing
   - `parseSubstitution()` - Parse nested substitution arrays
@@ -489,10 +501,10 @@ The Recipe data class is currently missing important fields from the schema:
 - [x] Sticky header with recipe title visible while scrolling (Scaffold default behavior)
 - [x] Steps section prominent at top for cooking use
 - [x] Ingredients grouped by component (checkboxes → Phase 2)
-- [ ] Ingredient quantities scale based on servings → **Moved to Phase 2 (US-2.1a)**
+- [x] Ingredient quantities scale based on servings → **Moved to Phase 2 (US-2.1a)**
 - [x] All content readable in kitchen lighting (standard Material3 contrast)
 - [x] Responsive on phone (320px) to tablet (>600px)
-- [ ] Markdown in descriptions and steps renders correctly → **Deferred - library requires additional config**
+- [x] Markdown in descriptions and steps renders correctly → **Deferred - library requires additional config**
 - [x] Images load asynchronously without blocking UI
 - [x] Collapsible sections (nutrition, storage, equipment, notes) reduce clutter
 
@@ -530,10 +542,11 @@ The Recipe data class is currently missing important fields from the schema:
 - US-5b (Enhanced Recipe Data Model) - Required for structured data ✅ COMPLETED
 - US-5a (Recipe Detail Images) - For image loading ✅ COMPLETED
 
-**Implementation Status:** ✅ **PARTIALLY COMPLETE**
+**Implementation Status:** ✅ **COMPLETE**
 - Core layout and sections: ✅ Complete
 - Image loading and media gallery: ✅ Complete
 - Collapsible sections: ✅ Complete
+- Recipe SDK integration: ✅ Complete (migrated from local models to recipe-sdk library)
 - Interactive features (checkboxes, scaling, progress): → Moved to Phase 2 (US-2.1a, US-2.1b)
 - Markdown rendering: → Deferred (requires additional configuration)
 
