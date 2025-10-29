@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import net.shamansoft.kukbuk.util.Logger
+import net.shamansoft.recipe.model.Recipe
 
 /**
  * Represents the state of the recipe detail screen
@@ -53,7 +54,7 @@ class RecipeDetailViewModel(
 
             when (val result = recipeRepository.getRecipe(recipeId)) {
                 is RecipeResult.Success -> {
-                    Logger.d("RecipeDetailVM", "Recipe loaded successfully: ${result.data.title}")
+                    Logger.d("RecipeDetailVM", "Recipe loaded successfully: ${result.data.metadata.title}")
                     _recipeDetailState.value = RecipeDetailState.Success(result.data)
                 }
                 is RecipeResult.Error -> {
@@ -87,7 +88,7 @@ class RecipeDetailViewModel(
 
             when (val result = recipeRepository.refreshRecipe(recipeId)) {
                 is RecipeResult.Success -> {
-                    Logger.d("RecipeDetailVM", "Recipe refreshed successfully: ${result.data.title}")
+                    Logger.d("RecipeDetailVM", "Recipe refreshed successfully: ${result.data.metadata.title}")
                     _recipeDetailState.value = RecipeDetailState.Success(result.data)
                 }
                 is RecipeResult.Error -> {

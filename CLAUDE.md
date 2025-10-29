@@ -1,7 +1,3 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Overview
 
 This is a Kotlin Multiplatform project using Compose Multiplatform targeting Android, iOS, and Web (WASM). The app appears to be called "Kukbuk" and uses the package name `net.shamansoft.kukbuk`.
