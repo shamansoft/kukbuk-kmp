@@ -10,6 +10,15 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.sqldelight)
+}
+
+sqldelight {
+    databases {
+        create("RecipeDatabase") {
+            packageName.set("net.shamansoft.kukbuk.db")
+        }
+    }
 }
 
 kotlin {
@@ -62,10 +71,12 @@ kotlin {
             implementation(libs.google.signin)
             implementation(libs.androidx.datastore.preferences)
             implementation(libs.ktor.client.android)
+            implementation(libs.sqldelight.android.driver)
         }
         
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            implementation(libs.sqldelight.native.driver)
         }
         
         wasmJsMain.dependencies {
@@ -96,6 +107,8 @@ kotlin {
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor3)
             implementation(libs.markdown.renderer)
+            implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutines)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

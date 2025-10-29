@@ -5,6 +5,10 @@ import net.shamansoft.kukbuk.auth.AuthViewModel
 import net.shamansoft.kukbuk.auth.AuthenticationRepository
 import net.shamansoft.kukbuk.auth.AuthenticationService
 import net.shamansoft.kukbuk.auth.SecureStorage
+import net.shamansoft.kukbuk.cache.RecipeCache
+import net.shamansoft.kukbuk.cache.SqlDelightRecipeCache
+import net.shamansoft.kukbuk.db.DatabaseDriverFactory
+import net.shamansoft.kukbuk.db.RecipeDatabase
 import net.shamansoft.kukbuk.drive.GoogleDriveService
 import net.shamansoft.kukbuk.drive.HttpGoogleDriveService
 import net.shamansoft.kukbuk.getLocalRecipesPath
@@ -15,6 +19,7 @@ import net.shamansoft.kukbuk.recipe.RecipeDataSource
 import net.shamansoft.kukbuk.recipe.RecipeDetailViewModel
 import net.shamansoft.kukbuk.recipe.RecipeListViewModel
 import net.shamansoft.kukbuk.recipe.RecipeRepository
+import net.shamansoft.kukbuk.settings.SettingsViewModel
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
@@ -49,10 +54,19 @@ val localDevDataModule = module {
 }
 
 /**
+ * Database module - provides database and cache dependencies
+ * Note: DatabaseDriverFactory is provided by platform-specific modules
+ */
+val databaseModule = module {
+    single { RecipeDatabase(get<DatabaseDriverFactory>().createDriver()) }
+    single<RecipeCache> { SqlDelightRecipeCache(get()) }
+}
+
+/**
  * Recipe module - provides recipe-related dependencies
  */
 val recipeModule = module {
-    single { RecipeRepository(get()) }
+    single { RecipeRepository(get(), get()) }
 }
 
 /**
@@ -61,6 +75,7 @@ val recipeModule = module {
 val viewModelModule = module {
     viewModelOf(::AuthViewModel)
     viewModelOf(::RecipeListViewModel)
+    viewModelOf(::SettingsViewModel)
 
     // RecipeDetailViewModel requires a recipeId parameter
     // We'll use factory instead of viewModel
@@ -75,6 +90,7 @@ val viewModelModule = module {
  */
 internal fun getCommonProductionModules(): List<Module> = listOf(
     authModule,
+    databaseModule,
     productionDataModule,
     recipeModule,
     viewModelModule
@@ -86,6 +102,7 @@ internal fun getCommonProductionModules(): List<Module> = listOf(
  */
 internal fun getCommonLocalDevModules(): List<Module> = listOf(
     authModule,
+    databaseModule,
     localDevDataModule,
     recipeModule,
     viewModelModule

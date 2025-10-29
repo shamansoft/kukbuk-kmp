@@ -50,7 +50,8 @@ fun RecipeListScreen(
     user: AuthUser,
     onSignOut: () -> Unit,
     viewModel: RecipeListViewModel,
-    onRecipeClick: (RecipeListItem) -> Unit
+    onRecipeClick: (RecipeListItem) -> Unit,
+    onNavigateToSettings: () -> Unit = {}
 ) {
     val recipeListState by viewModel.recipeListState.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -67,6 +68,7 @@ fun RecipeListScreen(
             onSignOut = onSignOut,
             onSearchClick = { showSearch = !showSearch },
             onRefreshClick = { viewModel.refreshRecipes() },
+            onNavigateToSettings = onNavigateToSettings,
             isRefreshing = isRefreshing
         )
 
@@ -125,6 +127,7 @@ private fun TopAppBar(
     onSignOut: () -> Unit,
     onSearchClick: () -> Unit,
     onRefreshClick: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     isRefreshing: Boolean
 ) {
     Card(
@@ -168,6 +171,10 @@ private fun TopAppBar(
                     } else {
                         Text("🔄")
                     }
+                }
+
+                IconButton(onClick = onNavigateToSettings) {
+                    Text("⚙️")
                 }
 
                 OutlinedButton(onClick = onSignOut) {

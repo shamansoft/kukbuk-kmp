@@ -6,6 +6,7 @@ import net.shamansoft.kukbuk.auth.AndroidSecureStorage
 import net.shamansoft.kukbuk.auth.AuthenticationRepository
 import net.shamansoft.kukbuk.auth.AuthenticationService
 import net.shamansoft.kukbuk.auth.SecureStorage
+import net.shamansoft.kukbuk.db.DatabaseDriverFactory
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -26,10 +27,22 @@ val androidAuthModule: Module = module {
 }
 
 /**
+ * Android-specific database module that provides DatabaseDriverFactory
+ */
+val androidDatabaseModule: Module = module {
+    single {
+        val activity: MainActivity = get()
+        DatabaseDriverFactory(activity.applicationContext)
+    }
+}
+
+/**
  * Returns all modules for Android production configuration (Google Drive)
  */
 fun getAndroidProductionModules(): List<Module> = listOf(
     androidAuthModule,
+    androidDatabaseModule,
+    databaseModule,
     productionDataModule,
     recipeModule,
     viewModelModule
@@ -40,6 +53,8 @@ fun getAndroidProductionModules(): List<Module> = listOf(
  */
 fun getAndroidLocalDevModules(): List<Module> = listOf(
     androidAuthModule,
+    androidDatabaseModule,
+    databaseModule,
     localDevDataModule,
     recipeModule,
     viewModelModule

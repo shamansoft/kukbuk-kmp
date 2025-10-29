@@ -20,8 +20,13 @@ sealed class RecipeDetailState {
 
     /**
      * Recipe loaded successfully
+     * @param recipe The recipe data
+     * @param isOffline True if loaded from cache (offline mode)
      */
-    data class Success(val recipe: Recipe) : RecipeDetailState()
+    data class Success(
+        val recipe: Recipe,
+        val isOffline: Boolean = false
+    ) : RecipeDetailState()
 
     /**
      * Error loading recipe
@@ -54,8 +59,12 @@ class RecipeDetailViewModel(
 
             when (val result = recipeRepository.getRecipe(recipeId)) {
                 is RecipeResult.Success -> {
-                    Logger.d("RecipeDetailVM", "Recipe loaded successfully: ${result.data.metadata.title}")
-                    _recipeDetailState.value = RecipeDetailState.Success(result.data)
+                    val offlineMsg = if (result.isOffline) " (offline)" else ""
+                    Logger.d("RecipeDetailVM", "Recipe loaded successfully: ${result.data.metadata.title}$offlineMsg")
+                    _recipeDetailState.value = RecipeDetailState.Success(
+                        recipe = result.data,
+                        isOffline = result.isOffline
+                    )
                 }
                 is RecipeResult.Error -> {
                     Logger.e("RecipeDetailVM", "Error loading recipe: ${result.message}")
@@ -88,8 +97,12 @@ class RecipeDetailViewModel(
 
             when (val result = recipeRepository.refreshRecipe(recipeId)) {
                 is RecipeResult.Success -> {
-                    Logger.d("RecipeDetailVM", "Recipe refreshed successfully: ${result.data.metadata.title}")
-                    _recipeDetailState.value = RecipeDetailState.Success(result.data)
+                    val offlineMsg = if (result.isOffline) " (offline)" else ""
+                    Logger.d("RecipeDetailVM", "Recipe refreshed successfully: ${result.data.metadata.title}$offlineMsg")
+                    _recipeDetailState.value = RecipeDetailState.Success(
+                        recipe = result.data,
+                        isOffline = result.isOffline
+                    )
                 }
                 is RecipeResult.Error -> {
                     Logger.e("RecipeDetailVM", "Error refreshing recipe: ${result.message}")

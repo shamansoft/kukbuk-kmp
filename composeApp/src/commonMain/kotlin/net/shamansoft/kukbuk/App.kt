@@ -67,6 +67,9 @@ fun AppContent() {
                                 recipeId = recipe.id,
                                 recipeTitle = recipe.title
                             )
+                        },
+                        onNavigateToSettings = {
+                            currentScreen = Screen.Settings
                         }
                     )
                 }
@@ -84,6 +87,15 @@ fun AppContent() {
                         recipeTitle = screen.recipeTitle,
                         onNavigateBack = { currentScreen = Screen.RecipeList },
                         viewModel = detailViewModel
+                    )
+                }
+
+                Screen.Settings -> {
+                    val settingsViewModel = koinViewModel<net.shamansoft.kukbuk.settings.SettingsViewModel>()
+
+                    SettingsScreen(
+                        onNavigateBack = { currentScreen = Screen.RecipeList },
+                        viewModel = settingsViewModel
                     )
                 }
             }

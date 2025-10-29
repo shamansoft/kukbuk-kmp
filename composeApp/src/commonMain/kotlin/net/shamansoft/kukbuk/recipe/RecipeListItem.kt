@@ -42,7 +42,10 @@ sealed class RecipeListState {
 }
 
 sealed class RecipeResult<out T> {
-    data class Success<T>(val data: T) : RecipeResult<T>()
+    data class Success<T>(
+        val data: T,
+        val isOffline: Boolean = false
+    ) : RecipeResult<T>()
     data class Error(val message: String, val throwable: Throwable? = null) : RecipeResult<Nothing>()
     data object Loading : RecipeResult<Nothing>()
 }
