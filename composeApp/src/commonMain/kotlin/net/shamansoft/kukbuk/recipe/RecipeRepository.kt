@@ -226,6 +226,8 @@ class RecipeRepository(
 
     fun clearCache() {
         _recipeCache.clear()
+        _metadataCache = null
+        Logger.d("RecipeRepo", "Cleared in-memory caches (recipe details and metadata)")
     }
 
     fun getCachedRecipesCount(): Int {
