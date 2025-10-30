@@ -7,6 +7,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import net.shamansoft.kukbuk.cache.RecipeCache
+import net.shamansoft.kukbuk.util.Logger
+import org.koin.compose.koinInject
 
 /**
  * Android implementation of the debug data source section.
@@ -16,6 +20,8 @@ import androidx.compose.ui.unit.dp
 actual fun DebugDataSourceSection(modifier: Modifier) {
     if (!isDebugBuild()) return
 
+    val recipeCache: RecipeCache = koinInject()
+    val scope = rememberCoroutineScope()
     var currentMode by remember { mutableStateOf(DataSourceConfig.mode) }
     val context = LocalContext.current
 
@@ -41,10 +47,21 @@ actual fun DebugDataSourceSection(modifier: Modifier) {
             ) {
                 Button(
                     onClick = {
-                        DataSourceConfig.mode = DataSourceMode.LOCAL
-                        currentMode = DataSourceMode.LOCAL
-                        // Restart the app
-                        (context as? Activity)?.recreate()
+                        scope.launch {
+                            try {
+                                // Clear cache before switching data sources
+                                Logger.d("DebugMenu", "Clearing cache before switching to LOCAL")
+                                recipeCache.clearCache()
+
+                                DataSourceConfig.mode = DataSourceMode.LOCAL
+                                currentMode = DataSourceMode.LOCAL
+
+                                // Restart the app to load from new data source
+                                (context as? Activity)?.recreate()
+                            } catch (e: Exception) {
+                                Logger.e("DebugMenu", "Failed to clear cache: ${e.message}")
+                            }
+                        }
                     },
                     enabled = currentMode != DataSourceMode.LOCAL,
                     modifier = Modifier.weight(1f)
@@ -56,10 +73,21 @@ actual fun DebugDataSourceSection(modifier: Modifier) {
 
                 Button(
                     onClick = {
-                        DataSourceConfig.mode = DataSourceMode.PRODUCTION
-                        currentMode = DataSourceMode.PRODUCTION
-                        // Restart the app
-                        (context as? Activity)?.recreate()
+                        scope.launch {
+                            try {
+                                // Clear cache before switching data sources
+                                Logger.d("DebugMenu", "Clearing cache before switching to PRODUCTION")
+                                recipeCache.clearCache()
+
+                                DataSourceConfig.mode = DataSourceMode.PRODUCTION
+                                currentMode = DataSourceMode.PRODUCTION
+
+                                // Restart the app to load from new data source
+                                (context as? Activity)?.recreate()
+                            } catch (e: Exception) {
+                                Logger.e("DebugMenu", "Failed to clear cache: ${e.message}")
+                            }
+                        }
                     },
                     enabled = currentMode != DataSourceMode.PRODUCTION,
                     modifier = Modifier.weight(1f)
@@ -73,6 +101,11 @@ actual fun DebugDataSourceSection(modifier: Modifier) {
                 text = "Current: ${currentMode.name}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Text(
+                text = "Note: Switching will clear cache",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
             )
         }
     }

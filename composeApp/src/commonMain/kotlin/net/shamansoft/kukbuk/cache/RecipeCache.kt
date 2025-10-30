@@ -91,6 +91,14 @@ interface RecipeCache {
      * @return Flow emitting cache size whenever it changes
      */
     fun observeCacheSize(): Flow<Int>
+
+    /**
+     * Get all cached recipe IDs.
+     * Useful for debugging or clearing specific entries.
+     *
+     * @return List of all cached recipe IDs
+     */
+    suspend fun getAllCachedRecipeIds(): List<String>
 }
 
 /**

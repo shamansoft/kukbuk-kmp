@@ -2,6 +2,7 @@ package net.shamansoft.recipe.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.shamansoft.recipe.serialization.FlexibleIngredientListSerializer
 
 /**
  * Represents a complete recipe with all its components.
@@ -33,6 +34,7 @@ data class Recipe(
     val description: String = "",
 
     @SerialName("ingredients")
+    @Serializable(with = FlexibleIngredientListSerializer::class)
     val ingredients: List<Ingredient>,
 
     @SerialName("equipment")

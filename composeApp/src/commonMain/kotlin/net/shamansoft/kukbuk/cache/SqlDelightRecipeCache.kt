@@ -7,6 +7,7 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.Clock
 import net.shamansoft.kukbuk.db.RecipeDatabase
 import net.shamansoft.kukbuk.util.Logger
 import net.shamansoft.recipe.model.Recipe
@@ -29,7 +30,7 @@ class SqlDelightRecipeCache(
 
     override suspend fun cacheRecipe(recipeId: String, recipeYaml: String, recipe: Recipe) = withContext(Dispatchers.IO) {
         try {
-            val now = System.currentTimeMillis()
+            val now = Clock.System.now().toEpochMilliseconds()
 
             queries.insertOrReplaceRecipe(
                 id = recipeId,
@@ -89,7 +90,7 @@ class SqlDelightRecipeCache(
     override suspend fun markRecipeAsViewed(recipeId: String) = withContext(Dispatchers.IO) {
         try {
             queries.updateLastViewed(
-                lastViewed = System.currentTimeMillis(),
+                lastViewed = Clock.System.now().toEpochMilliseconds(),
                 id = recipeId
             )
             Logger.d("RecipeCache", "Updated lastViewed for recipe: $recipeId")
@@ -132,7 +133,7 @@ class SqlDelightRecipeCache(
 
     override suspend fun deleteExpiredRecipes(maxAgeMillis: Long) = withContext(Dispatchers.IO) {
         try {
-            val expirationTime = System.currentTimeMillis() - maxAgeMillis
+            val expirationTime = Clock.System.now().toEpochMilliseconds() - maxAgeMillis
             val expiredRecipes = queries.getExpiredRecipes(expirationTime).executeAsList()
             queries.deleteExpiredRecipes(expirationTime)
             Logger.d("RecipeCache", "Deleted ${expiredRecipes.size} expired recipes older than ${maxAgeMillis}ms")
@@ -146,6 +147,17 @@ class SqlDelightRecipeCache(
             .asFlow()
             .mapToOne(Dispatchers.IO)
             .map { it.toInt() }
+    }
+
+    override suspend fun getAllCachedRecipeIds(): List<String> = withContext(Dispatchers.IO) {
+        try {
+            queries.getAllCachedRecipes()
+                .executeAsList()
+                .map { it.id }
+        } catch (e: Exception) {
+            Logger.e("RecipeCache", "Failed to get all cached recipe IDs: ${e.message}")
+            emptyList()
+        }
     }
 
     /**
