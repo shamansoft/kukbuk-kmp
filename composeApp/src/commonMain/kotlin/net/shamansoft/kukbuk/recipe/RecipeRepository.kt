@@ -4,9 +4,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import net.shamansoft.kukbuk.cache.RecipeCache
 import net.shamansoft.kukbuk.util.Logger
@@ -115,6 +118,111 @@ class RecipeRepository(
             }
         }
     }
+
+    /**
+     * Load recipes progressively, emitting each recipe as it's downloaded and parsed.
+     * This provides better user experience by showing recipes as they arrive instead of
+     * waiting for all recipes to load.
+     *
+     * @return Flow of RecipeLoadEvent that emits as recipes are loaded
+     */
+    fun loadRecipesProgressively(): Flow<RecipeLoadEvent> = flow {
+        Logger.d("RecipeRepo", "Starting progressive recipe loading")
+        emit(RecipeLoadEvent.LoadingStarted)
+
+        // First, emit cached recipes if available
+        _metadataCache?.let { cached ->
+            Logger.d("RecipeRepo", "Emitting ${cached.size} cached recipes progressively")
+            cached.forEach { recipe ->
+                emit(RecipeLoadEvent.RecipeLoaded(recipe))
+            }
+        }
+
+        try {
+            // Fetch file list
+            when (val result = dataSource.listRecipeFiles()) {
+                is DataSourceResult.Success -> {
+                    val files = result.data
+                    Logger.d("RecipeRepo", "Processing ${files.size} files progressively")
+
+                    if (files.isEmpty()) {
+                        emit(RecipeLoadEvent.LoadingComplete(0))
+                        return@flow
+                    }
+
+                    val loadedRecipes = mutableListOf<RecipeListItem>()
+
+                    // Process files in parallel batches, emitting each recipe as it's ready
+                    files.chunked(PARALLEL_DOWNLOAD_BATCH_SIZE).forEach { batch ->
+                        // Download batch in parallel
+                        val batchRecipes = coroutineScope {
+                            batch.map { file ->
+                                async(Dispatchers.IO) {
+                                    try {
+                                        val content = dataSource.getFileContent(file.id)
+                                        if (content is DataSourceResult.Success) {
+                                            try {
+                                                val recipe = RecipeYaml.parse(content.data)
+                                                RecipeListItem.fromRecipe(
+                                                    recipe = recipe,
+                                                    fileId = file.id,
+                                                    lastModified = file.modifiedTime
+                                                )
+                                            } catch (e: RecipeParseException) {
+                                                Logger.e(
+                                                    "RecipeRepo",
+                                                    "Failed to parse ${file.name}: ${e.message}"
+                                                )
+                                                null
+                                            }
+                                        } else {
+                                            null
+                                        }
+                                    } catch (e: Exception) {
+                                        Logger.e(
+                                            "RecipeRepo",
+                                            "Error processing file ${file.name}: ${e.message}"
+                                        )
+                                        null
+                                    }
+                                }
+                            }.mapNotNull { it.await() }
+                        }
+
+                        // Emit each recipe from the batch immediately
+                        batchRecipes.forEach { recipe ->
+                            loadedRecipes.add(recipe)
+                            emit(RecipeLoadEvent.RecipeLoaded(recipe))
+                            Logger.d("RecipeRepo", "Emitted recipe: ${recipe.title}")
+                        }
+                    }
+
+                    // Update cache
+                    if (loadedRecipes.isNotEmpty()) {
+                        val sorted = loadedRecipes.sortedByDescending { it.lastModified }
+                        _metadataCache = sorted
+                        _recipeListState.value = RecipeListState.Success(sorted)
+                        Logger.d("RecipeRepo", "Progressive loading complete: ${loadedRecipes.size} recipes")
+                    }
+
+                    emit(RecipeLoadEvent.LoadingComplete(loadedRecipes.size))
+                }
+
+                is DataSourceResult.Error -> {
+                    Logger.e("RecipeRepo", "Error loading recipes: ${result.message}")
+                    emit(RecipeLoadEvent.Error(result.message))
+                    _recipeListState.value = RecipeListState.Error(result.message)
+                }
+
+                is DataSourceResult.Loading -> {
+                    // Already emitted LoadingStarted
+                }
+            }
+        } catch (e: Exception) {
+            Logger.e("RecipeRepo", "Exception during progressive loading: ${e.message}")
+            emit(RecipeLoadEvent.Error(e.message ?: "Unknown error"))
+        }
+    }.flowOn(Dispatchers.Default)
 
     suspend fun getRecipe(recipeId: String): RecipeResult<Recipe> {
         Logger.d("RecipeRepo", "getRecipe called with ID: $recipeId")

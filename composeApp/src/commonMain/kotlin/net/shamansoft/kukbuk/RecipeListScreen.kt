@@ -56,6 +56,8 @@ fun RecipeListScreen(
     val recipeListState by viewModel.recipeListState.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val progressiveRecipes by viewModel.progressiveRecipes.collectAsState()
+    val isLoadingProgressively by viewModel.isLoadingProgressively.collectAsState()
     var showSearch by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
@@ -88,30 +90,44 @@ fun RecipeListScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Recipe list content
-        when (val state = recipeListState) {
-            is RecipeListState.Loading -> {
-                LoadingState()
-            }
-
-            is RecipeListState.Success -> {
+        // Recipe list content - use progressive loading state
+        when {
+            // Show progressive recipes as they load
+            progressiveRecipes.isNotEmpty() || isLoadingProgressively -> {
                 val displayedRecipes = viewModel.getDisplayedRecipes()
                 RecipeList(
                     recipes = displayedRecipes,
                     onRecipeClick = onRecipeClick,
                     isRefreshing = isRefreshing,
+                    isLoadingMore = isLoadingProgressively,
                     onRefresh = { viewModel.refreshRecipes() }
                 )
             }
 
-            is RecipeListState.Error -> {
+            // Fallback to old state-based rendering
+            recipeListState is RecipeListState.Loading -> {
+                LoadingState()
+            }
+
+            recipeListState is RecipeListState.Success -> {
+                val displayedRecipes = viewModel.getDisplayedRecipes()
+                RecipeList(
+                    recipes = displayedRecipes,
+                    onRecipeClick = onRecipeClick,
+                    isRefreshing = isRefreshing,
+                    isLoadingMore = false,
+                    onRefresh = { viewModel.refreshRecipes() }
+                )
+            }
+
+            recipeListState is RecipeListState.Error -> {
                 ErrorState(
-                    message = state.message,
+                    message = (recipeListState as RecipeListState.Error).message,
                     onRetry = { viewModel.retryLoading() }
                 )
             }
 
-            is RecipeListState.Empty -> {
+            recipeListState is RecipeListState.Empty -> {
                 EmptyState()
             }
         }
@@ -212,9 +228,10 @@ private fun RecipeList(
     recipes: List<RecipeListItem>,
     onRecipeClick: (RecipeListItem) -> Unit,
     isRefreshing: Boolean,
+    isLoadingMore: Boolean,
     onRefresh: () -> Unit
 ) {
-    if (recipes.isEmpty()) {
+    if (recipes.isEmpty() && !isLoadingMore) {
         EmptySearchState()
     } else {
         PullToRefreshBox(
@@ -235,6 +252,33 @@ private fun RecipeList(
                         recipe = recipe,
                         onClick = { onRecipeClick(recipe) }
                     )
+                }
+
+                // Show loading indicator at the bottom while more recipes are being loaded
+                if (isLoadingMore && recipes.isNotEmpty()) {
+                    item(key = "loading_more") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Text(
+                                    text = "Loading more recipes...",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
