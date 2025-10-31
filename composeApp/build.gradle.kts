@@ -112,6 +112,10 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.turbine)
+            implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.sqlite.driver)
         }
     }
 }
@@ -143,6 +147,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
+    }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 }
 
