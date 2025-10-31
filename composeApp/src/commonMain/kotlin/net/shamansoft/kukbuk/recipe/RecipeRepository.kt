@@ -1,8 +1,13 @@
 package net.shamansoft.kukbuk.recipe
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import net.shamansoft.kukbuk.cache.RecipeCache
 import net.shamansoft.kukbuk.util.Logger
 import net.shamansoft.recipe.model.Recipe
@@ -23,18 +28,23 @@ class RecipeRepository(
 
     companion object {
         private const val MAX_PERSISTENT_CACHE_SIZE = 100
+        private const val PARALLEL_DOWNLOAD_BATCH_SIZE = 5 // Download 5 files concurrently
     }
 
-    suspend fun loadRecipes(forceRefresh: Boolean = false) {
-        // If we have cached data and not forcing refresh, use cache
-        if (!forceRefresh && _metadataCache != null) {
+    suspend fun loadRecipes(forceRefresh: Boolean = false, showCachedWhileRefreshing: Boolean = false) {
+        // Optimistic UI: Show cached data immediately if available
+        if (_metadataCache != null && !forceRefresh) {
             _recipeListState.value = RecipeListState.Success(_metadataCache!!)
             Logger.d("RecipeRepo", "Using cached recipe metadata (${_metadataCache!!.size} recipes)")
             return
         }
 
-        Logger.d("RecipeRepo", "Loading recipes from data source (forceRefresh=$forceRefresh)")
-        _recipeListState.value = RecipeListState.Loading
+        // If showing cached data during refresh, keep it visible
+        if (!showCachedWhileRefreshing || _metadataCache == null) {
+            _recipeListState.value = RecipeListState.Loading
+        }
+
+        Logger.d("RecipeRepo", "Loading recipes from data source (forceRefresh=$forceRefresh, showCached=$showCachedWhileRefreshing)")
 
         when (val result = dataSource.listRecipeFiles()) {
             is DataSourceResult.Success -> {
@@ -43,33 +53,44 @@ class RecipeRepository(
                 if (files.isEmpty()) {
                     _recipeListState.value = RecipeListState.Empty
                 } else {
-                    val recipes = mutableListOf<RecipeListItem>()
-
-                    files.forEach { file ->
-                        try {
-                            val content = dataSource.getFileContent(file.id)
-                            if (content is DataSourceResult.Success) {
-                                try {
-                                    val recipe = RecipeYaml.parse(content.data)
-                                    val listItem = RecipeListItem.fromRecipe(
-                                        recipe = recipe,
-                                        fileId = file.id,
-                                        lastModified = file.modifiedTime
-                                    )
-                                    recipes.add(listItem)
-                                } catch (e: RecipeParseException) {
-                                    Logger.e(
-                                        "RecipeRepo",
-                                        "Failed to parse ${file.name}: ${e.message}"
-                                    )
-                                }
+                    // Process files in parallel batches for better performance
+                    val recipes = withContext(Dispatchers.IO) {
+                        files.chunked(PARALLEL_DOWNLOAD_BATCH_SIZE).flatMap { batch ->
+                            // Process each batch in parallel
+                            coroutineScope {
+                                batch.map { file ->
+                                    async {
+                                        try {
+                                            val content = dataSource.getFileContent(file.id)
+                                            if (content is DataSourceResult.Success) {
+                                                try {
+                                                    val recipe = RecipeYaml.parse(content.data)
+                                                    RecipeListItem.fromRecipe(
+                                                        recipe = recipe,
+                                                        fileId = file.id,
+                                                        lastModified = file.modifiedTime
+                                                    )
+                                                } catch (e: RecipeParseException) {
+                                                    Logger.e(
+                                                        "RecipeRepo",
+                                                        "Failed to parse ${file.name}: ${e.message}"
+                                                    )
+                                                    null
+                                                }
+                                            } else {
+                                                null
+                                            }
+                                        } catch (e: Exception) {
+                                            // Continue processing other files
+                                            Logger.e(
+                                                "RecipeRepo",
+                                                "Error processing file ${file.name}: ${e.message}"
+                                            )
+                                            null
+                                        }
+                                    }
+                                }.mapNotNull { it.await() } // Wait for all in batch and filter nulls
                             }
-                        } catch (e: Exception) {
-                            // Continue processing other files
-                            Logger.e(
-                                "RecipeRepo",
-                                "Error processing file ${file.name}: ${e.message}"
-                            )
                         }
                     }
 
@@ -77,7 +98,7 @@ class RecipeRepository(
                         val sorted = recipes.sortedByDescending { it.lastModified }
                         _metadataCache = sorted // Cache the metadata
                         _recipeListState.value = RecipeListState.Success(sorted)
-                        Logger.d("RecipeRepo", "Cached ${sorted.size} recipe metadata entries")
+                        Logger.d("RecipeRepo", "Cached ${sorted.size} recipe metadata entries (loaded with ${files.size / PARALLEL_DOWNLOAD_BATCH_SIZE + 1} parallel batches)")
                     } else {
                         _recipeListState.value =
                             RecipeListState.Error("No valid recipes found")
@@ -167,7 +188,8 @@ class RecipeRepository(
     }
 
     suspend fun refreshRecipes() {
-        loadRecipes(forceRefresh = true)
+        // Optimistic UI: Keep cached recipes visible while refreshing
+        loadRecipes(forceRefresh = true, showCachedWhileRefreshing = true)
     }
 
     suspend fun refreshRecipe(recipeId: String): RecipeResult<Recipe> {

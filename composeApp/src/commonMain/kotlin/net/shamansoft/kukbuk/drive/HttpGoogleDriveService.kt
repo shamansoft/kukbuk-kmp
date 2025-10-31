@@ -19,7 +19,7 @@ class HttpGoogleDriveService(
     companion object {
         private const val DRIVE_API_BASE = "https://www.googleapis.com/drive/v3"
         private const val KUKBUK_FOLDER_NAME = "kukbuk"
-        
+
         fun createHttpClient(): HttpClient {
             return HttpClient {
                 install(ContentNegotiation) {
@@ -32,6 +32,9 @@ class HttpGoogleDriveService(
         }
     }
 
+    // Cache the folder ID to avoid repeated lookups (saves ~459ms per load)
+    private var cachedFolderId: String? = null
+
     override suspend fun listFilesInKukbukFolder(): DriveResult<List<DriveFile>> {
         Logger.d("DriveService", "listFilesInKukbukFolder() called")
         return try {
@@ -43,16 +46,22 @@ class HttpGoogleDriveService(
             }
             Logger.d("DriveService", "Access token obtained: ${token.take(20)}...")
 
-            // First, find the kukbuk folder
-            Logger.d("DriveService", "Finding kukbuk folder...")
-            val folderResult = findKukbukFolder(token)
-            if (folderResult is DriveResult.Error) {
-                Logger.d("DriveService", "Failed to find kukbuk folder: ${folderResult.message}")
-                return folderResult
+            // Get kukbuk folder ID (from cache if available)
+            val folderId = cachedFolderId ?: run {
+                Logger.d("DriveService", "Finding kukbuk folder (not cached)...")
+                val folderResult = findKukbukFolder(token)
+                if (folderResult is DriveResult.Error) {
+                    Logger.d("DriveService", "Failed to find kukbuk folder: ${folderResult.message}")
+                    return folderResult
+                }
+                val id = (folderResult as DriveResult.Success).data
+                cachedFolderId = id // Cache for future use
+                Logger.d("DriveService", "Found and cached kukbuk folder with id: $id")
+                id
             }
-
-            val folderId = (folderResult as DriveResult.Success).data
-            Logger.d("DriveService", "Found kukbuk folder with id: $folderId")
+            if (cachedFolderId != null) {
+                Logger.d("DriveService", "Using cached kukbuk folder id: $folderId")
+            }
 
             // List YAML files in the kukbuk folder
             val query = "'$folderId' in parents and name contains '.yaml' and trashed=false"
