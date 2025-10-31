@@ -20,14 +20,16 @@ androidx-datastore = "1.1.1"
 kotlinx-coroutines = "1.9.0"
 kotlinx-serialization = "1.8.0"
 kotlinx-datetime = "0.6.1"
+turbine = "1.2.0"
 googleApiClient = "2.9.1"
 ktor = "3.0.2"
-kaml = "0.56.0"
+kaml = "0.99.0"
 compose-pullRefresh = "1.0.0"
 koin = "4.0.0"
 okio = "3.9.0"
 coil = "3.0.4"
 markdown-renderer = "0.28.0"
+sqldelight = "2.0.2"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -47,8 +49,10 @@ androidx-credentials = { module = "androidx.credentials:credentials", version.re
 androidx-credentials-play-services = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentialManager" }
 google-identity-services = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleIdentityServices" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-json = { module = "io.ktor:ktor-client-json", version.ref = "ktor" }
 ktor-client-serialization = { module = "io.ktor:ktor-client-serialization", version.ref = "ktor" }
@@ -65,6 +69,11 @@ okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 markdown-renderer = { module = "com.mikepenz:multiplatform-markdown-renderer", version.ref = "markdown-renderer" }
+sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
+sqldelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
+sqldelight-android-driver = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
+sqldelight-native-driver = { module = "app.cash.sqldelight:native-driver", version.ref = "sqldelight" }
+sqldelight-sqlite-driver = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -73,3 +82,4 @@ composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMul
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }

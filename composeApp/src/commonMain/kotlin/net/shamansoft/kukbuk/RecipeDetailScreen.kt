@@ -100,7 +100,10 @@ fun RecipeDetailScreen(
                 }
 
                 is RecipeDetailState.Success -> {
-                    RecipeContent(recipe = state.recipe)
+                    RecipeContent(
+                        recipe = state.recipe,
+                        isOffline = state.isOffline
+                    )
                 }
 
                 is RecipeDetailState.Error -> {
@@ -115,7 +118,10 @@ fun RecipeDetailScreen(
 }
 
 @Composable
-private fun RecipeContent(recipe: Recipe) {
+private fun RecipeContent(
+    recipe: Recipe,
+    isOffline: Boolean = false
+) {
     // DEBUG: Log recipe data
     net.shamansoft.kukbuk.util.Logger.d("RecipeDetailScreen", "Recipe: ${recipe.metadata.title}")
     net.shamansoft.kukbuk.util.Logger.d("RecipeDetailScreen", "Instructions count: ${recipe.instructions.size}")
@@ -128,6 +134,13 @@ private fun RecipeContent(recipe: Recipe) {
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp)
     ) {
+        // Offline indicator banner (if offline)
+        if (isOffline) {
+            item {
+                OfflineIndicatorBanner()
+            }
+        }
+
         // 1. Steps Section (PRIMARY - for cooking)
         if (recipe.instructions.isNotEmpty()) {
             item {
@@ -923,6 +936,49 @@ private fun ErrorState(
 
             Button(onClick = onRetry) {
                 Text("Try Again")
+            }
+        }
+    }
+}
+
+/**
+ * Offline indicator banner shown when recipe is loaded from cache
+ */
+@Composable
+private fun OfflineIndicatorBanner() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "📡",
+                fontSize = 20.sp
+            )
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "Offline Mode",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    text = "Viewing cached version",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
             }
         }
     }

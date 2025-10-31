@@ -21,19 +21,18 @@ kotlin {
 
     jvm()
 
-    // Note: iOS and WASM support not enabled because kaml (YAML library) only supports JVM/Android
-    // For native/wasm targets, you would need to use a different YAML library or pure JSON
-    // listOf(
-    //     iosX64(),
-    //     iosArm64(),
-    //     iosSimulatorArm64()
-    // ).forEach { iosTarget ->
-    //     iosTarget.binaries.framework {
-    //         baseName = "RecipeSDK"
-    //         isStatic = true
-    //     }
-    // }
-    //
+    listOf(
+        iosX64(),
+        iosArm64(),
+        iosSimulatorArm64()
+    ).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "RecipeSDK"
+            isStatic = true
+        }
+    }
+
+    // Note: WASM support deferred to future phase (see docs/phase-web.md)
     // @OptIn(ExperimentalWasmDsl::class)
     // wasmJs {
     //     browser()

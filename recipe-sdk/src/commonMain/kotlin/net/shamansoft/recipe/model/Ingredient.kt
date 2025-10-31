@@ -37,3 +37,26 @@ data class Ingredient(
     @SerialName("component")
     val component: String = "main"
 )
+
+/**
+ * Represents a grouped set of ingredients with a component label.
+ * Used for YAML formats that group ingredients by component (e.g., "dough", "filling", "sauce").
+ *
+ * @property component The component name (e.g., "Main", "Dressing", "Sauce")
+ * @property items List of ingredients in this component group
+ */
+@Serializable
+data class IngredientGroup(
+    @SerialName("component")
+    val component: String,
+
+    @SerialName("items")
+    val items: List<Ingredient>
+) {
+    /**
+     * Converts this group to a flat list of ingredients with the component set.
+     */
+    fun toIngredientList(): List<Ingredient> {
+        return items.map { it.copy(component = component) }
+    }
+}

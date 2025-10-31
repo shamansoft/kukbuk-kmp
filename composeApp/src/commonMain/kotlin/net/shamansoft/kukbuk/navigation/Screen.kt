@@ -19,4 +19,9 @@ sealed class Screen {
         val recipeId: String,
         val recipeTitle: String
     ) : Screen()
+
+    /**
+     * Settings screen - app settings and configuration
+     */
+    data object Settings : Screen()
 }

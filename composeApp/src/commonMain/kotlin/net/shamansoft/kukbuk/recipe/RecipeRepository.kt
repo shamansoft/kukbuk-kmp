@@ -3,20 +3,27 @@ package net.shamansoft.kukbuk.recipe
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import net.shamansoft.kukbuk.cache.RecipeCache
 import net.shamansoft.kukbuk.util.Logger
 import net.shamansoft.recipe.model.Recipe
 import net.shamansoft.recipe.parser.RecipeYaml
 import net.shamansoft.recipe.parser.RecipeParseException
 
 class RecipeRepository(
-    private val dataSource: RecipeDataSource
+    private val dataSource: RecipeDataSource,
+    private val recipeCache: RecipeCache
 ) {
 
     private val _recipeListState = MutableStateFlow<RecipeListState>(RecipeListState.Loading)
     val recipeListState: StateFlow<RecipeListState> = _recipeListState.asStateFlow()
 
+    // In-memory cache for session performance (warm cache)
     private val _recipeCache = mutableMapOf<String, Recipe>()
     private var _metadataCache: List<RecipeListItem>? = null
+
+    companion object {
+        private const val MAX_PERSISTENT_CACHE_SIZE = 100
+    }
 
     suspend fun loadRecipes(forceRefresh: Boolean = false) {
         // If we have cached data and not forcing refresh, use cache
@@ -91,24 +98,39 @@ class RecipeRepository(
     suspend fun getRecipe(recipeId: String): RecipeResult<Recipe> {
         Logger.d("RecipeRepo", "getRecipe called with ID: $recipeId")
 
-        // Check cache first
+        // Check in-memory cache first (fastest)
         _recipeCache[recipeId]?.let { cachedRecipe ->
-            Logger.d("RecipeRepo", "Recipe found in cache: ${cachedRecipe.metadata.title}")
-            return RecipeResult.Success(cachedRecipe)
+            Logger.d("RecipeRepo", "Recipe found in memory cache: ${cachedRecipe.metadata.title}")
+            return RecipeResult.Success(cachedRecipe, isOffline = false)
         }
 
-        Logger.d("RecipeRepo", "Recipe not in cache, loading from data source")
+        // Try to fetch from network
+        Logger.d("RecipeRepo", "Recipe not in memory cache, loading from data source")
         return when (val result = dataSource.getFileContent(recipeId)) {
             is DataSourceResult.Success -> {
+                val yamlContent = result.data
                 Logger.d(
                     "RecipeRepo",
-                    "Loaded recipe content, parsing YAML (${result.data.length} chars)"
+                    "Loaded recipe content, parsing YAML (${yamlContent.length} chars)"
                 )
                 try {
-                    val recipe = RecipeYaml.parse(result.data)
+                    val recipe = RecipeYaml.parse(yamlContent)
                     Logger.d("RecipeRepo", "Successfully parsed recipe: ${recipe.metadata.title}")
+
+                    // Cache in memory for session
                     _recipeCache[recipeId] = recipe
-                    RecipeResult.Success(recipe)
+
+                    // Cache persistently for offline access
+                    try {
+                        recipeCache.cacheRecipe(recipeId, yamlContent, recipe)
+                        recipeCache.enforceCacheLimit(MAX_PERSISTENT_CACHE_SIZE)
+                        Logger.d("RecipeRepo", "Cached recipe persistently for offline access")
+                    } catch (e: Exception) {
+                        Logger.e("RecipeRepo", "Failed to cache recipe persistently: ${e.message}")
+                        // Continue even if caching fails - user still gets the recipe
+                    }
+
+                    RecipeResult.Success(recipe, isOffline = false)
                 } catch (e: RecipeParseException) {
                     Logger.e("RecipeRepo", "Failed to parse recipe YAML: ${e.message}")
                     RecipeResult.Error("Failed to parse recipe data: ${e.message}")
@@ -119,8 +141,23 @@ class RecipeRepository(
             }
 
             is DataSourceResult.Error -> {
-                Logger.e("RecipeRepo", "Error loading recipe: ${result.message}")
-                RecipeResult.Error(result.message)
+                Logger.e("RecipeRepo", "Network error loading recipe: ${result.message}")
+
+                // Try persistent cache as fallback
+                try {
+                    val cached = recipeCache.getCachedRecipe(recipeId)
+                    if (cached != null) {
+                        Logger.d("RecipeRepo", "Using cached recipe (offline): ${cached.recipe.metadata.title}")
+                        _recipeCache[recipeId] = cached.recipe // Warm up memory cache
+                        RecipeResult.Success(cached.recipe, isOffline = true)
+                    } else {
+                        Logger.d("RecipeRepo", "Recipe not in persistent cache")
+                        RecipeResult.Error(result.message)
+                    }
+                } catch (e: Exception) {
+                    Logger.e("RecipeRepo", "Failed to load from persistent cache: ${e.message}")
+                    RecipeResult.Error(result.message)
+                }
             }
 
             is DataSourceResult.Loading -> {
@@ -189,6 +226,8 @@ class RecipeRepository(
 
     fun clearCache() {
         _recipeCache.clear()
+        _metadataCache = null
+        Logger.d("RecipeRepo", "Cleared in-memory caches (recipe details and metadata)")
     }
 
     fun getCachedRecipesCount(): Int {

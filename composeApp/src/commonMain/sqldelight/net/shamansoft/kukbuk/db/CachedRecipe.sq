@@ -1,0 +1,87 @@
+-- Schema version: 1
+-- Caches recipes for offline access
+CREATE TABLE CachedRecipe (
+    id TEXT NOT NULL PRIMARY KEY,
+    recipeYaml TEXT NOT NULL,
+    title TEXT NOT NULL,
+    author TEXT,
+    imageUrl TEXT,
+    lastViewed INTEGER NOT NULL,
+    lastSynced INTEGER NOT NULL,
+    isFavorite INTEGER DEFAULT 0 NOT NULL
+);
+
+-- Index for efficient "most recent" queries
+CREATE INDEX idx_lastViewed ON CachedRecipe(lastViewed DESC);
+
+-- Index for favorites (future feature)
+CREATE INDEX idx_favorite ON CachedRecipe(isFavorite) WHERE isFavorite = 1;
+
+-- Index for title search (for offline search feature)
+CREATE INDEX idx_title ON CachedRecipe(title COLLATE NOCASE);
+
+-- Query: Get a specific cached recipe
+getCachedRecipe:
+SELECT * FROM CachedRecipe WHERE id = ?;
+
+-- Query: Get N most recently viewed recipes
+getMostRecentRecipes:
+SELECT * FROM CachedRecipe
+ORDER BY lastViewed DESC
+LIMIT ?;
+
+-- Query: Get all cached recipes (for migration/export)
+getAllCachedRecipes:
+SELECT * FROM CachedRecipe;
+
+-- Query: Get count of cached recipes
+getCachedRecipeCount:
+SELECT COUNT(*) FROM CachedRecipe;
+
+-- Query: Check if recipe exists in cache
+recipeExistsInCache:
+SELECT EXISTS(SELECT 1 FROM CachedRecipe WHERE id = ?);
+
+-- Insert or replace a cached recipe
+insertOrReplaceRecipe:
+INSERT OR REPLACE INTO CachedRecipe(id, recipeYaml, title, author, imageUrl, lastViewed, lastSynced, isFavorite)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Update only the lastViewed timestamp
+updateLastViewed:
+UPDATE CachedRecipe
+SET lastViewed = ?
+WHERE id = ?;
+
+-- Delete oldest N recipes (for cache size management)
+deleteOldestRecipes:
+DELETE FROM CachedRecipe
+WHERE id IN (
+    SELECT id FROM CachedRecipe
+    ORDER BY lastViewed ASC
+    LIMIT ?
+);
+
+-- Delete a specific recipe
+deleteRecipe:
+DELETE FROM CachedRecipe WHERE id = ?;
+
+-- Clear all cached recipes
+clearAllCache:
+DELETE FROM CachedRecipe;
+
+-- Get recipes older than a timestamp (for cleanup)
+getExpiredRecipes:
+SELECT * FROM CachedRecipe
+WHERE lastSynced < ?;
+
+-- Delete recipes older than a timestamp
+deleteExpiredRecipes:
+DELETE FROM CachedRecipe
+WHERE lastSynced < ?;
+
+-- Search cached recipes by title (for offline search)
+searchCachedRecipesByTitle:
+SELECT * FROM CachedRecipe
+WHERE title LIKE '%' || ? || '%'
+ORDER BY lastViewed DESC;

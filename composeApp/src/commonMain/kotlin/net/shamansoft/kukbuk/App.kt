@@ -11,7 +11,6 @@ import androidx.compose.runtime.setValue
 import net.shamansoft.kukbuk.auth.AuthViewModel
 import net.shamansoft.kukbuk.auth.AuthenticationScreen
 import net.shamansoft.kukbuk.auth.AuthenticationState
-import net.shamansoft.kukbuk.di.getPlatformLocalDevModules
 import net.shamansoft.kukbuk.di.getPlatformProductionModules
 import net.shamansoft.kukbuk.navigation.Screen
 import net.shamansoft.kukbuk.util.Logger
@@ -23,17 +22,11 @@ import org.koin.core.parameter.parametersOf
 @Composable
 @Preview
 fun App() {
-    // Initialize Koin with appropriate modules based on DataSourceConfig
+    // Initialize Koin with production modules (Google Drive)
     KoinApplication(
         application = {
-            val modules = if (DataSourceConfig.isLocalMode()) {
-                Logger.d("App", "Using LOCAL data source (local files)")
-                getPlatformLocalDevModules()
-            } else {
-                Logger.d("App", "Using PRODUCTION data source (Google Drive)")
-                getPlatformProductionModules()
-            }
-            modules(modules)
+            Logger.d("App", "Using PRODUCTION data source (Google Drive)")
+            modules(getPlatformProductionModules())
         }
     ) {
         MaterialTheme {
@@ -67,6 +60,9 @@ fun AppContent() {
                                 recipeId = recipe.id,
                                 recipeTitle = recipe.title
                             )
+                        },
+                        onNavigateToSettings = {
+                            currentScreen = Screen.Settings
                         }
                     )
                 }
@@ -84,6 +80,15 @@ fun AppContent() {
                         recipeTitle = screen.recipeTitle,
                         onNavigateBack = { currentScreen = Screen.RecipeList },
                         viewModel = detailViewModel
+                    )
+                }
+
+                Screen.Settings -> {
+                    val settingsViewModel = koinViewModel<net.shamansoft.kukbuk.settings.SettingsViewModel>()
+
+                    SettingsScreen(
+                        onNavigateBack = { currentScreen = Screen.RecipeList },
+                        viewModel = settingsViewModel
                     )
                 }
             }
