@@ -13,7 +13,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -58,6 +62,7 @@ fun RecipeListScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val progressiveRecipes by viewModel.progressiveRecipes.collectAsState()
     val isLoadingProgressively by viewModel.isLoadingProgressively.collectAsState()
+    val hasMore by viewModel.hasMore.collectAsState()
     var showSearch by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
@@ -100,7 +105,9 @@ fun RecipeListScreen(
                     onRecipeClick = onRecipeClick,
                     isRefreshing = isRefreshing,
                     isLoadingMore = isLoadingProgressively,
-                    onRefresh = { viewModel.refreshRecipes() }
+                    hasMore = hasMore,
+                    onRefresh = { viewModel.refreshRecipes() },
+                    onLoadMore = { viewModel.loadMoreRecipes() }
                 )
             }
 
@@ -116,7 +123,9 @@ fun RecipeListScreen(
                     onRecipeClick = onRecipeClick,
                     isRefreshing = isRefreshing,
                     isLoadingMore = false,
-                    onRefresh = { viewModel.refreshRecipes() }
+                    hasMore = false,
+                    onRefresh = { viewModel.refreshRecipes() },
+                    onLoadMore = {}
                 )
             }
 
@@ -229,17 +238,36 @@ private fun RecipeList(
     onRecipeClick: (RecipeListItem) -> Unit,
     isRefreshing: Boolean,
     isLoadingMore: Boolean,
-    onRefresh: () -> Unit
+    hasMore: Boolean,
+    onRefresh: () -> Unit,
+    onLoadMore: () -> Unit
 ) {
     if (recipes.isEmpty() && !isLoadingMore) {
         EmptySearchState()
     } else {
+        val listState = rememberLazyListState()
+
+        // Infinite scroll detection
+        LaunchedEffect(listState, hasMore, isLoadingMore) {
+            snapshotFlow {
+                val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                val totalItems = listState.layoutInfo.totalItemsCount
+                // Trigger load more when we're 2 items away from the end
+                lastVisibleIndex >= totalItems - 2
+            }.collect { shouldLoadMore ->
+                if (shouldLoadMore && hasMore && !isLoadingMore && recipes.isNotEmpty()) {
+                    onLoadMore()
+                }
+            }
+        }
+
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = onRefresh,
             modifier = Modifier.fillMaxSize()
         ) {
             LazyColumn(
+                state = listState,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 16.dp),
                 modifier = Modifier.fillMaxSize()
@@ -277,6 +305,24 @@ private fun RecipeList(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                        }
+                    }
+                }
+
+                // Show "end of list" indicator when all recipes are loaded
+                if (!hasMore && !isLoadingMore && recipes.isNotEmpty()) {
+                    item(key = "end_of_list") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "All recipes loaded",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }

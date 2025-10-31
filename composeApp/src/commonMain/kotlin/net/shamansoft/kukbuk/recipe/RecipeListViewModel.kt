@@ -3,6 +3,7 @@ package net.shamansoft.kukbuk.recipe
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,10 +36,14 @@ class RecipeListViewModel(
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    private val _hasMore = MutableStateFlow(true)
+    val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
+
     private var progressiveLoadingJob: Job? = null
+    private var isLoadingMore = false
 
     init {
-        loadRecipesProgressively()
+        loadInitialRecipes()
     }
 
     fun loadRecipes() {
@@ -48,7 +53,85 @@ class RecipeListViewModel(
     }
 
     /**
-     * Load recipes progressively, showing them as they're downloaded
+     * Load initial page of recipes with pagination (Phase 3)
+     */
+    fun loadInitialRecipes() {
+        progressiveLoadingJob?.cancel()
+        progressiveLoadingJob = viewModelScope.launch {
+            _isLoadingProgressively.value = true
+            _progressiveRecipes.value = emptyList()
+            recipeRepository.resetPagination()
+            _hasMore.value = true
+
+            recipeRepository.loadRecipesPageProgressively(isInitialLoad = true)
+                .onEach { event ->
+                    when (event) {
+                        is RecipeLoadEvent.LoadingStarted -> {
+                            _isLoadingProgressively.value = true
+                        }
+                        is RecipeLoadEvent.RecipeLoaded -> {
+                            val currentList = _progressiveRecipes.value.toMutableList()
+                            currentList.add(event.recipe)
+                            _progressiveRecipes.value = currentList.sortedByDescending { it.lastModified }
+                        }
+                        is RecipeLoadEvent.LoadingComplete -> {
+                            _isLoadingProgressively.value = false
+                            _hasMore.value = recipeRepository.hasMoreRecipes()
+                        }
+                        is RecipeLoadEvent.Error -> {
+                            _isLoadingProgressively.value = false
+                        }
+                    }
+                }
+                .catch { e ->
+                    _isLoadingProgressively.value = false
+                }
+                .collect { }
+        }
+    }
+
+    /**
+     * Load more recipes when scrolling (infinite scroll - Phase 3)
+     */
+    fun loadMoreRecipes() {
+        if (isLoadingMore || !_hasMore.value || _isLoadingProgressively.value) {
+            return
+        }
+
+        isLoadingMore = true
+        viewModelScope.launch {
+            _isLoadingProgressively.value = true
+
+            recipeRepository.loadRecipesPageProgressively(isInitialLoad = false)
+                .onEach { event ->
+                    when (event) {
+                        is RecipeLoadEvent.RecipeLoaded -> {
+                            val currentList = _progressiveRecipes.value.toMutableList()
+                            currentList.add(event.recipe)
+                            _progressiveRecipes.value = currentList.sortedByDescending { it.lastModified }
+                        }
+                        is RecipeLoadEvent.LoadingComplete -> {
+                            _isLoadingProgressively.value = false
+                            _hasMore.value = recipeRepository.hasMoreRecipes()
+                            isLoadingMore = false
+                        }
+                        is RecipeLoadEvent.Error -> {
+                            _isLoadingProgressively.value = false
+                            isLoadingMore = false
+                        }
+                        else -> {}
+                    }
+                }
+                .catch { e ->
+                    _isLoadingProgressively.value = false
+                    isLoadingMore = false
+                }
+                .collect { }
+        }
+    }
+
+    /**
+     * Load recipes progressively (Phase 2 method - kept for compatibility)
      */
     fun loadRecipesProgressively() {
         progressiveLoadingJob?.cancel()
@@ -63,7 +146,6 @@ class RecipeListViewModel(
                             _isLoadingProgressively.value = true
                         }
                         is RecipeLoadEvent.RecipeLoaded -> {
-                            // Add recipe to the list and sort by modification time
                             val currentList = _progressiveRecipes.value.toMutableList()
                             currentList.add(event.recipe)
                             _progressiveRecipes.value = currentList.sortedByDescending { it.lastModified }
@@ -73,53 +155,23 @@ class RecipeListViewModel(
                         }
                         is RecipeLoadEvent.Error -> {
                             _isLoadingProgressively.value = false
-                            // Error is already logged in repository
                         }
                     }
                 }
                 .catch { e ->
                     _isLoadingProgressively.value = false
-                    // Error handling
                 }
                 .collect { }
         }
     }
 
     fun refreshRecipes() {
+        _isRefreshing.value = true
+        loadInitialRecipes()
+        // Reset refreshing after initial load starts
         viewModelScope.launch {
-            _isRefreshing.value = true
-            _isLoadingProgressively.value = true
-            _progressiveRecipes.value = emptyList()
-
-            try {
-                recipeRepository.loadRecipesProgressively()
-                    .onEach { event ->
-                        when (event) {
-                            is RecipeLoadEvent.RecipeLoaded -> {
-                                val currentList = _progressiveRecipes.value.toMutableList()
-                                currentList.add(event.recipe)
-                                _progressiveRecipes.value = currentList.sortedByDescending { it.lastModified }
-                            }
-                            is RecipeLoadEvent.LoadingComplete -> {
-                                _isLoadingProgressively.value = false
-                                _isRefreshing.value = false
-                            }
-                            is RecipeLoadEvent.Error -> {
-                                _isLoadingProgressively.value = false
-                                _isRefreshing.value = false
-                            }
-                            else -> {}
-                        }
-                    }
-                    .catch { e ->
-                        _isLoadingProgressively.value = false
-                        _isRefreshing.value = false
-                    }
-                    .collect { }
-            } finally {
-                _isRefreshing.value = false
-                _isLoadingProgressively.value = false
-            }
+            kotlinx.coroutines.delay(500) // Small delay to show refresh indicator
+            _isRefreshing.value = false
         }
     }
     
@@ -183,6 +235,6 @@ class RecipeListViewModel(
     }
 
     fun retryLoading() {
-        loadRecipesProgressively()
+        loadInitialRecipes()
     }
 }

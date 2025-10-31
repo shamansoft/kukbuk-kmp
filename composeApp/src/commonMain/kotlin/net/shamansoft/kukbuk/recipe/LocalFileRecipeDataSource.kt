@@ -53,6 +53,47 @@ class LocalFileRecipeDataSource(
         }
     }
 
+    override suspend fun listRecipeFilesPaginated(
+        pageSize: Int,
+        pageToken: String?
+    ): DataSourceResult<RecipeFilesPage> {
+        return withContext(Dispatchers.Default) {
+            try {
+                // Get all files first
+                val allFilesResult = listRecipeFiles()
+                when (allFilesResult) {
+                    is DataSourceResult.Success -> {
+                        val allFiles = allFilesResult.data
+
+                        // Simple pagination using offset
+                        val offset = pageToken?.toIntOrNull() ?: 0
+                        val page = allFiles.drop(offset).take(pageSize)
+                        val nextOffset = offset + pageSize
+                        val hasMore = nextOffset < allFiles.size
+
+                        DataSourceResult.Success(
+                            RecipeFilesPage(
+                                files = page,
+                                nextPageToken = if (hasMore) nextOffset.toString() else null,
+                                hasMore = hasMore
+                            )
+                        )
+                    }
+                    is DataSourceResult.Error -> {
+                        DataSourceResult.Error(allFilesResult.message)
+                    }
+                    is DataSourceResult.Loading -> {
+                        DataSourceResult.Loading
+                    }
+                }
+            } catch (e: Exception) {
+                val errorMsg = "Error listing paginated local recipe files: ${e.message}"
+                Logger.e("LocalFileDataSource", errorMsg)
+                DataSourceResult.Error(errorMsg)
+            }
+        }
+    }
+
     override suspend fun getFileContent(fileId: String): DataSourceResult<String> {
         return withContext(Dispatchers.Default) {
             try {

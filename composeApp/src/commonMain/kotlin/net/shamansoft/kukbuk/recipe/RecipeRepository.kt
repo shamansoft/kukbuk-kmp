@@ -29,9 +29,14 @@ class RecipeRepository(
     private val _recipeCache = mutableMapOf<String, Recipe>()
     private var _metadataCache: List<RecipeListItem>? = null
 
+    // Pagination state
+    private var nextPageToken: String? = null
+    private var hasMorePages: Boolean = true
+
     companion object {
         private const val MAX_PERSISTENT_CACHE_SIZE = 100
         private const val PARALLEL_DOWNLOAD_BATCH_SIZE = 5 // Download 5 files concurrently
+        private const val PAGINATION_PAGE_SIZE = 5 // Number of files to load per page
     }
 
     suspend fun loadRecipes(forceRefresh: Boolean = false, showCachedWhileRefreshing: Boolean = false) {
@@ -223,6 +228,126 @@ class RecipeRepository(
             emit(RecipeLoadEvent.Error(e.message ?: "Unknown error"))
         }
     }.flowOn(Dispatchers.Default)
+
+    /**
+     * Load one page of recipes progressively with pagination support.
+     * This is the main method for Phase 3 - loads only a small number of recipes at a time.
+     *
+     * @param isInitialLoad If true, resets pagination state and may emit cached recipes
+     * @return Flow of RecipeLoadEvent for progressive UI updates
+     */
+    fun loadRecipesPageProgressively(isInitialLoad: Boolean = false): Flow<RecipeLoadEvent> = flow {
+        Logger.d("RecipeRepo", "Starting paginated progressive recipe loading (initial=$isInitialLoad)")
+
+        if (isInitialLoad) {
+            // Reset pagination state
+            nextPageToken = null
+            hasMorePages = true
+
+            // Emit cached recipes if available
+            _metadataCache?.let { cached ->
+                Logger.d("RecipeRepo", "Emitting ${cached.size} cached recipes")
+                cached.forEach { recipe ->
+                    emit(RecipeLoadEvent.RecipeLoaded(recipe))
+                }
+            }
+        }
+
+        if (!hasMorePages) {
+            Logger.d("RecipeRepo", "No more pages to load")
+            emit(RecipeLoadEvent.LoadingComplete(0))
+            return@flow
+        }
+
+        emit(RecipeLoadEvent.LoadingStarted)
+
+        try {
+            // Fetch one page of files
+            when (val result = dataSource.listRecipeFilesPaginated(
+                pageSize = PAGINATION_PAGE_SIZE,
+                pageToken = nextPageToken
+            )) {
+                is DataSourceResult.Success -> {
+                    val page = result.data
+                    Logger.d("RecipeRepo", "Received page with ${page.files.size} files (hasMore=${page.hasMore})")
+
+                    // Update pagination state
+                    nextPageToken = page.nextPageToken
+                    hasMorePages = page.hasMore
+
+                    if (page.files.isEmpty()) {
+                        emit(RecipeLoadEvent.LoadingComplete(0))
+                        return@flow
+                    }
+
+                    // Process files in parallel batch
+                    val loadedRecipes = withContext(Dispatchers.IO) {
+                        coroutineScope {
+                            page.files.map { file ->
+                                async {
+                                    try {
+                                        val content = dataSource.getFileContent(file.id)
+                                        if (content is DataSourceResult.Success) {
+                                            try {
+                                                val recipe = RecipeYaml.parse(content.data)
+                                                RecipeListItem.fromRecipe(
+                                                    recipe = recipe,
+                                                    fileId = file.id,
+                                                    lastModified = file.modifiedTime
+                                                )
+                                            } catch (e: RecipeParseException) {
+                                                Logger.e("RecipeRepo", "Failed to parse ${file.name}: ${e.message}")
+                                                null
+                                            }
+                                        } else {
+                                            null
+                                        }
+                                    } catch (e: Exception) {
+                                        Logger.e("RecipeRepo", "Error processing file ${file.name}: ${e.message}")
+                                        null
+                                    }
+                                }
+                            }.mapNotNull { it.await() }
+                        }
+                    }
+
+                    // Emit each recipe immediately
+                    loadedRecipes.forEach { recipe ->
+                        emit(RecipeLoadEvent.RecipeLoaded(recipe))
+                        Logger.d("RecipeRepo", "Emitted recipe: ${recipe.title}")
+                    }
+
+                    emit(RecipeLoadEvent.LoadingComplete(loadedRecipes.size))
+                }
+
+                is DataSourceResult.Error -> {
+                    Logger.e("RecipeRepo", "Error loading recipe page: ${result.message}")
+                    emit(RecipeLoadEvent.Error(result.message))
+                }
+
+                is DataSourceResult.Loading -> {
+                    // Already emitted LoadingStarted
+                }
+            }
+        } catch (e: Exception) {
+            Logger.e("RecipeRepo", "Exception during paginated progressive loading: ${e.message}")
+            emit(RecipeLoadEvent.Error(e.message ?: "Unknown error"))
+        }
+    }.flowOn(Dispatchers.Default)
+
+    /**
+     * Check if there are more pages to load
+     */
+    fun hasMoreRecipes(): Boolean = hasMorePages
+
+    /**
+     * Reset pagination state (useful for refresh)
+     */
+    fun resetPagination() {
+        nextPageToken = null
+        hasMorePages = true
+        Logger.d("RecipeRepo", "Pagination state reset")
+    }
 
     suspend fun getRecipe(recipeId: String): RecipeResult<Recipe> {
         Logger.d("RecipeRepo", "getRecipe called with ID: $recipeId")
