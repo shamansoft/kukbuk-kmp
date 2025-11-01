@@ -116,6 +116,14 @@ fun AuthenticationScreen(
                         )
                     }
 
+                    is AuthenticationState.Refreshing -> {
+                        CircularProgressIndicator()
+                        Text(
+                            text = "Refreshing authentication...",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
                     is AuthenticationState.Unauthenticated -> {
                         GoogleSignInButton(
                             onClick = { 
