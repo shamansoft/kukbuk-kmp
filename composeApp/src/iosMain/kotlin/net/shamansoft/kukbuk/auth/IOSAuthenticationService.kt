@@ -77,13 +77,18 @@ class IOSAuthenticationService : AuthenticationService {
 
     override suspend fun signOut(): Result<Unit> {
         return try {
-            // TODO: Call native GIDSignIn.sharedInstance.signOut()
-            // For now, just clear local storage
+            // Clear tokens and user from Keychain
             secureStorage.clearTokens()
             secureStorage.clearUser()
+
+            // TODO: When native GoogleSignIn is fully implemented, also call:
+            // GIDSignIn.sharedInstance.signOut() to revoke tokens server-side
+            // For now, clearing Keychain is sufficient for local logout
+
+            Logger.d("IOSAuth", "Sign out completed successfully")
             Result.success(Unit)
         } catch (e: Exception) {
-            println("IOSAuth: Sign out failed: ${e.message}")
+            Logger.e("IOSAuth", "Sign out failed: ${e.message}")
             Result.failure(e)
         }
     }

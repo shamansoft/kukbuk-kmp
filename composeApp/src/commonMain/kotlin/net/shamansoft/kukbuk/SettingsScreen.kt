@@ -22,6 +22,7 @@ fun SettingsScreen(
 ) {
     val settingsState by viewModel.settingsState.collectAsState()
     var showClearConfirmDialog by remember { mutableStateOf(false) }
+    var showLogoutConfirmDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -62,6 +63,20 @@ fun SettingsScreen(
                 )
             }
 
+            // Account Section
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                AccountSectionHeader()
+            }
+
+            item {
+                LogoutButton(
+                    enabled = !settingsState.isLoggingOut,
+                    isLoggingOut = settingsState.isLoggingOut,
+                    onClick = { showLogoutConfirmDialog = true }
+                )
+            }
+
             // About Section
             item {
                 Spacer(modifier = Modifier.height(24.dp))
@@ -86,7 +101,7 @@ fun SettingsScreen(
         }
     }
 
-    // Confirmation Dialog
+    // Clear Cache Confirmation Dialog
     if (showClearConfirmDialog) {
         ClearCacheConfirmDialog(
             onConfirm = {
@@ -97,6 +112,26 @@ fun SettingsScreen(
                 showClearConfirmDialog = false
             }
         )
+    }
+
+    // Logout Confirmation Dialog
+    if (showLogoutConfirmDialog) {
+        LogoutConfirmDialog(
+            onConfirm = {
+                viewModel.logout()
+                showLogoutConfirmDialog = false
+            },
+            onDismiss = {
+                showLogoutConfirmDialog = false
+            }
+        )
+    }
+
+    // Handle logout success - navigate back (auth state will trigger login screen)
+    if (settingsState.logoutSuccess) {
+        LaunchedEffect(Unit) {
+            onNavigateBack()
+        }
     }
 }
 
@@ -212,6 +247,75 @@ private fun ClearCacheConfirmDialog(
                 )
             ) {
                 Text("Clear")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+private fun AccountSectionHeader() {
+    Text(
+        text = "Account",
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold
+    )
+}
+
+@Composable
+private fun LogoutButton(
+    enabled: Boolean,
+    isLoggingOut: Boolean,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = enabled,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.error
+        )
+    ) {
+        if (isLoggingOut) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onError
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        Text(
+            text = if (isLoggingOut) "Logging out..." else "Logout",
+            color = MaterialTheme.colorScheme.onError
+        )
+    }
+}
+
+@Composable
+private fun LogoutConfirmDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Logout")
+        },
+        text = {
+            Text("Are you sure you want to logout? This will clear all cached recipes and you'll need to sign in again.")
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Logout")
             }
         },
         dismissButton = {

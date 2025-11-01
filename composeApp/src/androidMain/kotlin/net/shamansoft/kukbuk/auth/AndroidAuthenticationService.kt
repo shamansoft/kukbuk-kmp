@@ -147,10 +147,29 @@ class AndroidAuthenticationService(
 
     override suspend fun signOut(): Result<Unit> {
         return try {
+            // Get current tokens for revocation
+            val secureStorage = AndroidSecureStorage(context)
+            val tokens = secureStorage.getTokens()
+
+            // Revoke the OAuth token server-side
+            if (tokens != null) {
+                try {
+                    withContext(Dispatchers.IO) {
+                        GoogleAuthUtil.clearToken(context, tokens.accessToken)
+                    }
+                    Logger.d("AndroidAuth", "OAuth token revoked successfully")
+                } catch (e: Exception) {
+                    Logger.e("AndroidAuth", "Failed to revoke token: ${e.message}")
+                    // Continue with sign out even if revocation fails
+                }
+            }
+
             // Clear credentials from Credential Manager
             credentialManager.clearCredentialState(
                 androidx.credentials.ClearCredentialStateRequest()
             )
+
+            Logger.d("AndroidAuth", "Sign out completed successfully")
             Result.success(Unit)
         } catch (e: Exception) {
             Logger.e("AndroidAuth", "Sign out failed: ${e.message}")
