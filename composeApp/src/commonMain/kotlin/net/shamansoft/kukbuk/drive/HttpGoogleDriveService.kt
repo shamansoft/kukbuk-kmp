@@ -19,7 +19,7 @@ class HttpGoogleDriveService(
     companion object {
         private const val DRIVE_API_BASE = "https://www.googleapis.com/drive/v3"
         private const val KUKBUK_FOLDER_NAME = "kukbuk"
-        
+
         fun createHttpClient(): HttpClient {
             return HttpClient {
                 install(ContentNegotiation) {
@@ -32,6 +32,9 @@ class HttpGoogleDriveService(
         }
     }
 
+    // Cache the folder ID to avoid repeated lookups (saves ~459ms per load)
+    private var cachedFolderId: String? = null
+
     override suspend fun listFilesInKukbukFolder(): DriveResult<List<DriveFile>> {
         Logger.d("DriveService", "listFilesInKukbukFolder() called")
         return try {
@@ -43,16 +46,22 @@ class HttpGoogleDriveService(
             }
             Logger.d("DriveService", "Access token obtained: ${token.take(20)}...")
 
-            // First, find the kukbuk folder
-            Logger.d("DriveService", "Finding kukbuk folder...")
-            val folderResult = findKukbukFolder(token)
-            if (folderResult is DriveResult.Error) {
-                Logger.d("DriveService", "Failed to find kukbuk folder: ${folderResult.message}")
-                return folderResult
+            // Get kukbuk folder ID (from cache if available)
+            val folderId = cachedFolderId ?: run {
+                Logger.d("DriveService", "Finding kukbuk folder (not cached)...")
+                val folderResult = findKukbukFolder(token)
+                if (folderResult is DriveResult.Error) {
+                    Logger.d("DriveService", "Failed to find kukbuk folder: ${folderResult.message}")
+                    return folderResult
+                }
+                val id = (folderResult as DriveResult.Success).data
+                cachedFolderId = id // Cache for future use
+                Logger.d("DriveService", "Found and cached kukbuk folder with id: $id")
+                id
             }
-
-            val folderId = (folderResult as DriveResult.Success).data
-            Logger.d("DriveService", "Found kukbuk folder with id: $folderId")
+            if (cachedFolderId != null) {
+                Logger.d("DriveService", "Using cached kukbuk folder id: $folderId")
+            }
 
             // List YAML files in the kukbuk folder
             val query = "'$folderId' in parents and name contains '.yaml' and trashed=false"
@@ -88,6 +97,73 @@ class HttpGoogleDriveService(
             }
         } catch (e: Exception) {
             Logger.d("DriveService", "Exception in listFilesInKukbukFolder: ${e.message}")
+            e.printStackTrace()
+            DriveResult.Error("Network error: ${e.message}")
+        }
+    }
+
+    override suspend fun listFilesInKukbukFolderPaginated(
+        pageSize: Int,
+        pageToken: String?
+    ): DriveResult<DriveFilesPage> {
+        Logger.d("DriveService", "listFilesInKukbukFolderPaginated() called (pageSize=$pageSize, pageToken=${pageToken?.take(10)}...)")
+        return try {
+            val token = getValidAccessToken()
+            if (token == null) {
+                Logger.d("DriveService", "No valid access token available")
+                return DriveResult.Error("No valid access token available")
+            }
+
+            // Get kukbuk folder ID (from cache if available)
+            val folderId = cachedFolderId ?: run {
+                Logger.d("DriveService", "Finding kukbuk folder (not cached)...")
+                val folderResult = findKukbukFolder(token)
+                if (folderResult is DriveResult.Error) {
+                    Logger.d("DriveService", "Failed to find kukbuk folder: ${folderResult.message}")
+                    return folderResult
+                }
+                val id = (folderResult as DriveResult.Success).data
+                cachedFolderId = id
+                Logger.d("DriveService", "Found and cached kukbuk folder with id: $id")
+                id
+            }
+
+            // List YAML files in the kukbuk folder with pagination
+            val query = "'$folderId' in parents and name contains '.yaml' and trashed=false"
+            Logger.d("DriveService", "Listing files (paginated) with query: $query")
+
+            val response = httpClient.get("$DRIVE_API_BASE/files") {
+                headers {
+                    append(HttpHeaders.Authorization, "Bearer $token")
+                }
+                parameter("q", query)
+                parameter("fields", "files(id,name,mimeType,size,modifiedTime,parents,webViewLink),nextPageToken")
+                parameter("orderBy", "modifiedTime desc")
+                parameter("pageSize", pageSize.toString())
+                pageToken?.let { parameter("pageToken", it) }
+            }
+
+            Logger.d("DriveService", "Response status: ${response.status}")
+
+            if (response.status.isSuccess()) {
+                val filesResponse: DriveFilesResponse = response.body()
+                val page = DriveFilesPage.from(filesResponse)
+                Logger.d("DriveService", "Successfully listed ${page.files.size} files (hasMore=${page.hasMore})")
+                DriveResult.Success(page)
+            } else {
+                val errorBody = response.bodyAsText()
+                Logger.d("DriveService", "Failed to list files: ${response.status}, body: $errorBody")
+
+                if (response.status.value == 401) {
+                    Logger.e("DriveService", "Authentication error (401) - clearing auth state")
+                    authRepository.handleAuthenticationError()
+                    DriveResult.Error("Authentication expired. Please sign in again.", response.status.value)
+                } else {
+                    DriveResult.Error("Failed to list files: ${response.status}", response.status.value)
+                }
+            }
+        } catch (e: Exception) {
+            Logger.d("DriveService", "Exception in listFilesInKukbukFolderPaginated: ${e.message}")
             e.printStackTrace()
             DriveResult.Error("Network error: ${e.message}")
         }

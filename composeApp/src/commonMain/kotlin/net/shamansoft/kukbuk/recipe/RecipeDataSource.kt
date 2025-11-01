@@ -12,6 +12,17 @@ interface RecipeDataSource {
     suspend fun listRecipeFiles(): DataSourceResult<List<RecipeFile>>
 
     /**
+     * Lists recipe files with pagination support.
+     * @param pageSize Number of files to return per page (default 10)
+     * @param pageToken Token for the next page (null for first page)
+     * @return DataSourceResult with paginated list of RecipeFile objects
+     */
+    suspend fun listRecipeFilesPaginated(
+        pageSize: Int = 10,
+        pageToken: String? = null
+    ): DataSourceResult<RecipeFilesPage>
+
+    /**
      * Downloads/reads the content of a specific recipe file.
      * @param fileId Unique identifier for the file
      * @return DataSourceResult with the file content as a string
@@ -29,6 +40,18 @@ data class RecipeFile(
     val id: String,
     val name: String,
     val modifiedTime: String = ""
+)
+
+/**
+ * Paginated response for recipe file listing
+ * @property files List of recipe files in this page
+ * @property nextPageToken Token for fetching the next page (null if no more pages)
+ * @property hasMore Whether there are more pages to load
+ */
+data class RecipeFilesPage(
+    val files: List<RecipeFile>,
+    val nextPageToken: String?,
+    val hasMore: Boolean
 )
 
 /**
