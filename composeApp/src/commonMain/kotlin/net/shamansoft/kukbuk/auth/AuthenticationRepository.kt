@@ -39,25 +39,34 @@ class AuthenticationRepository(
     }
 
     private suspend fun tryRefreshToken(user: AuthUser, expiredTokens: AuthTokens) {
-        if (expiredTokens.refreshToken != null) {
-            when (val refreshResult = authService.refreshToken()) {
-                is AuthResult.Success -> {
-                    secureStorage.storeTokens(refreshResult.tokens)
-                    _authState.value = AuthenticationState.Authenticated(user)
-                }
-                is AuthResult.Error -> {
-                    secureStorage.clearTokens()
-                    secureStorage.clearUser()
-                    _authState.value = AuthenticationState.Unauthenticated
-                }
-                is AuthResult.Cancelled -> {
-                    _authState.value = AuthenticationState.Unauthenticated
-                }
+        // TEMPORARY FIX: Check if refresh token is actually a valid refresh token
+        // If access token == refresh token, it means we only have an ID token (not a real refresh token)
+        // In this case, skip refresh and just use the token as-is (will require re-login when truly expired)
+        if (expiredTokens.accessToken == expiredTokens.refreshToken) {
+            Logger.i("AuthRepo", "No valid refresh token available (ID token only), keeping current session")
+            _authState.value = AuthenticationState.Authenticated(user)
+            return
+        }
+
+        _authState.value = AuthenticationState.Refreshing
+        Logger.d("AuthRepo", "Attempting to refresh token...")
+
+        when (val refreshResult = authService.refreshToken()) {
+            is AuthResult.Success -> {
+                secureStorage.storeTokens(refreshResult.tokens)
+                _authState.value = AuthenticationState.Authenticated(user)
+                Logger.d("AuthRepo", "Token refresh successful")
             }
-        } else {
-            secureStorage.clearTokens()
-            secureStorage.clearUser()
-            _authState.value = AuthenticationState.Unauthenticated
+            is AuthResult.Error -> {
+                Logger.e("AuthRepo", "Token refresh failed: ${refreshResult.message}")
+                secureStorage.clearTokens()
+                secureStorage.clearUser()
+                _authState.value = AuthenticationState.Unauthenticated
+            }
+            is AuthResult.Cancelled -> {
+                Logger.i("AuthRepo", "Token refresh cancelled")
+                _authState.value = AuthenticationState.Unauthenticated
+            }
         }
     }
 
@@ -126,25 +135,28 @@ class AuthenticationRepository(
 
     suspend fun getValidAccessToken(): String? {
         val tokens = secureStorage.getTokens() ?: return null
+        val user = secureStorage.getUser() ?: return null
 
         // Check if token is expired or about to expire (5 min buffer)
         if (isTokenExpired(tokens)) {
-            val user = secureStorage.getUser()
-            if (user != null && tokens.refreshToken != null) {
-                // Try to refresh the token
-                when (val refreshResult = authService.refreshToken()) {
-                    is AuthResult.Success -> {
-                        secureStorage.storeTokens(refreshResult.tokens)
-                        return refreshResult.tokens.accessToken
-                    }
-                    is AuthResult.Error -> {
-                        Logger.e("AuthRepo", "Token refresh failed: ${refreshResult.message}")
-                        return null
-                    }
-                    is AuthResult.Cancelled -> return null
+            // TEMPORARY FIX: Don't try to refresh if we only have an ID token (not a real refresh token)
+            if (tokens.accessToken == tokens.refreshToken) {
+                Logger.i("AuthRepo", "Token expired but no valid refresh token, returning current token")
+                return tokens.accessToken // Return it anyway, will fail and trigger re-login
+            }
+
+            // Try to refresh the token
+            Logger.d("AuthRepo", "Access token expired, refreshing...")
+            when (val refreshResult = authService.refreshToken()) {
+                is AuthResult.Success -> {
+                    secureStorage.storeTokens(refreshResult.tokens)
+                    return refreshResult.tokens.accessToken
                 }
-            } else {
-                return null
+                is AuthResult.Error -> {
+                    Logger.e("AuthRepo", "Token refresh failed: ${refreshResult.message}")
+                    return null
+                }
+                is AuthResult.Cancelled -> return null
             }
         }
 

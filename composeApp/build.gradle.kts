@@ -69,7 +69,7 @@ kotlin {
             implementation(libs.androidx.credentials.play.services)
             implementation(libs.google.identity.services)
             implementation(libs.google.signin)
-            implementation(libs.androidx.datastore.preferences)
+            implementation(libs.androidx.security.crypto)
             implementation(libs.ktor.client.android)
             implementation(libs.sqldelight.android.driver)
         }
