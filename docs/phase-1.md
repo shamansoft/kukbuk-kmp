@@ -579,18 +579,18 @@ The Recipe data class is currently missing important fields from the schema:
 **As a user**, I want to access my recently viewed recipes even without internet so that I can cook anywhere.
 
 **Acceptance Criteria:**
-- [ ] Recently viewed recipes cached locally
-- [ ] Cache at least 10 most recent recipes
-- [ ] Clear indicator when viewing cached vs live data
-- [ ] Cached recipes include all text content
-- [ ] Cache updates when connected to internet
+- [x] Recently viewed recipes cached locally
+- [x] Cache at least 10 most recent recipes
+- [x] Clear indicator when viewing cached vs live data
+- [x] Cached recipes include all text content
+- [x] Cache updates when connected to internet
 
 **Technical Tasks:**
-- [ ] Implement local database with SQLDelight
-- [ ] Create caching strategy for recipe content
-- [ ] Add cache management (size limits, expiration)
-- [ ] Implement offline indicators in UI
-- [ ] Add cache sync logic
+- [x] Implement local database with SQLDelight
+- [x] Create caching strategy for recipe content
+- [x] Add cache management (size limits, expiration)
+- [x] Implement offline indicators in UI
+- [x] Add cache sync logic
 
 **Definition of Done:**
 - Recently viewed recipes work offline

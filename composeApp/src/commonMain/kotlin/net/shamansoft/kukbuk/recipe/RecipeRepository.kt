@@ -215,8 +215,8 @@ class RecipeRepository(
 
                 is DataSourceResult.Error -> {
                     Logger.e("RecipeRepo", "Error loading recipes: ${result.message}")
-                    emit(RecipeLoadEvent.Error(result.message))
                     _recipeListState.value = RecipeListState.Error(result.message)
+                    emit(RecipeLoadEvent.Error(result.message))
                 }
 
                 is DataSourceResult.Loading -> {
@@ -225,7 +225,9 @@ class RecipeRepository(
             }
         } catch (e: Exception) {
             Logger.e("RecipeRepo", "Exception during progressive loading: ${e.message}")
-            emit(RecipeLoadEvent.Error(e.message ?: "Unknown error"))
+            val errorMessage = e.message ?: "Unknown error"
+            _recipeListState.value = RecipeListState.Error(errorMessage)
+            emit(RecipeLoadEvent.Error(errorMessage))
         }
     }.flowOn(Dispatchers.Default)
 
@@ -322,6 +324,7 @@ class RecipeRepository(
 
                 is DataSourceResult.Error -> {
                     Logger.e("RecipeRepo", "Error loading recipe page: ${result.message}")
+                    _recipeListState.value = RecipeListState.Error(result.message)
                     emit(RecipeLoadEvent.Error(result.message))
                 }
 
@@ -331,7 +334,9 @@ class RecipeRepository(
             }
         } catch (e: Exception) {
             Logger.e("RecipeRepo", "Exception during paginated progressive loading: ${e.message}")
-            emit(RecipeLoadEvent.Error(e.message ?: "Unknown error"))
+            val errorMessage = e.message ?: "Unknown error"
+            _recipeListState.value = RecipeListState.Error(errorMessage)
+            emit(RecipeLoadEvent.Error(errorMessage))
         }
     }.flowOn(Dispatchers.Default)
 
