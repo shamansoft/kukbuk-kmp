@@ -25,7 +25,7 @@ class GoogleDriveRecipeDataSource(
                 DataSourceResult.Success(recipeFiles)
             }
             is DriveResult.Error -> {
-                DataSourceResult.Error(result.message)
+                DataSourceResult.Error(result.message, result.code)
             }
             is DriveResult.Loading -> {
                 DataSourceResult.Loading
@@ -55,7 +55,7 @@ class GoogleDriveRecipeDataSource(
                 )
             }
             is DriveResult.Error -> {
-                DataSourceResult.Error(result.message)
+                DataSourceResult.Error(result.message, result.code)
             }
             is DriveResult.Loading -> {
                 DataSourceResult.Loading
@@ -69,7 +69,7 @@ class GoogleDriveRecipeDataSource(
                 DataSourceResult.Success(result.data)
             }
             is DriveResult.Error -> {
-                DataSourceResult.Error(result.message)
+                DataSourceResult.Error(result.message, result.code)
             }
             is DriveResult.Loading -> {
                 DataSourceResult.Loading

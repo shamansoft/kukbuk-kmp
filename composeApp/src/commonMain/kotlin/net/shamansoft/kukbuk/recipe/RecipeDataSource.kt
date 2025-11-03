@@ -60,6 +60,6 @@ data class RecipeFilesPage(
  */
 sealed class DataSourceResult<out T> {
     data class Success<T>(val data: T) : DataSourceResult<T>()
-    data class Error(val message: String) : DataSourceResult<Nothing>()
+    data class Error(val message: String, val code: Int? = null) : DataSourceResult<Nothing>()
     data object Loading : DataSourceResult<Nothing>()
 }

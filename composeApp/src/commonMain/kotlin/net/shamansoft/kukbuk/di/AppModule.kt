@@ -66,7 +66,7 @@ val databaseModule = module {
  * Recipe module - provides recipe-related dependencies
  */
 val recipeModule = module {
-    single { RecipeRepository(get(), get()) }
+    single { RecipeRepository(get(), get(), get()) }
 }
 
 /**

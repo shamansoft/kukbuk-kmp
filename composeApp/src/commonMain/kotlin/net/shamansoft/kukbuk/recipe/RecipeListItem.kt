@@ -39,6 +39,7 @@ sealed class RecipeListState {
     data class Success(val recipes: List<RecipeListItem>) : RecipeListState()
     data class Error(val message: String) : RecipeListState()
     data object Empty : RecipeListState()
+    data object AuthenticationRequired : RecipeListState() // User needs to re-authenticate to sync
 }
 
 sealed class RecipeResult<out T> {
