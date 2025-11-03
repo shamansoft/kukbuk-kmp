@@ -83,27 +83,7 @@ class AuthViewModel(
         _errorMessage.value = null
     }
 
-    fun refreshAuthenticationIfNeeded() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                authRepository?.refreshTokenIfNeeded()
-            } catch (e: Exception) {
-                _errorMessage.value = "Authentication refresh failed: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
     fun isAuthenticated(): Boolean {
         return authRepository?.isAuthenticated() ?: false
-    }
-
-    fun requireValidAuthentication(): AuthUser? {
-        viewModelScope.launch {
-            authRepository?.requireValidAuthentication()
-        }
-        return getCurrentUser()
     }
 }

@@ -43,17 +43,23 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.shamansoft.kukbuk.auth.AuthUser
+import net.shamansoft.kukbuk.auth.AuthViewModel
+import net.shamansoft.kukbuk.auth.AuthenticationScreen
+import net.shamansoft.kukbuk.auth.InlineAuthenticationContent
 import net.shamansoft.kukbuk.recipe.RecipeListState
 import net.shamansoft.kukbuk.recipe.RecipeListViewModel
 import net.shamansoft.kukbuk.recipe.RecipeListItem
 import net.shamansoft.kukbuk.util.RecipeImage
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeListScreen(
-    user: AuthUser,
+    user: AuthUser?,
     onSignOut: () -> Unit,
     viewModel: RecipeListViewModel,
+    authViewModel: AuthViewModel,
     onRecipeClick: (RecipeListItem) -> Unit,
     onNavigateToSettings: () -> Unit = {}
 ) {
@@ -64,6 +70,15 @@ fun RecipeListScreen(
     val isLoadingProgressively by viewModel.isLoadingProgressively.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
     var showSearch by remember { mutableStateOf(false) }
+    var showLoginDialog by remember { mutableStateOf(false) }
+
+    // Watch for authentication required state
+    LaunchedEffect(recipeListState) {
+        if (recipeListState is RecipeListState.AuthenticationRequired) {
+            showLoginDialog = true
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -136,16 +151,58 @@ fun RecipeListScreen(
                 )
             }
 
+            recipeListState is RecipeListState.AuthenticationRequired -> {
+                // Show message that authentication is needed to sync
+                AuthenticationRequiredState(
+                    onSignIn = { showLoginDialog = true }
+                )
+            }
+
             recipeListState is RecipeListState.Empty -> {
-                EmptyState()
+                EmptyState(
+                    onSignIn = if (user == null) { { showLoginDialog = true } } else null
+                )
             }
         }
+    }
+
+    // Inline login dialog - shown when authentication is required for syncing
+    if (showLoginDialog) {
+        AlertDialog(
+            onDismissRequest = { showLoginDialog = false },
+            title = { Text("Sign In Required") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Please sign in to sync recipes from Google Drive.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    InlineAuthenticationContent(
+                        onAuthenticationSuccess = {
+                            showLoginDialog = false
+                            viewModel.refreshRecipes() // Retry refresh after login
+                        },
+                        authViewModel = authViewModel
+                    )
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showLoginDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
 @Composable
 private fun TopAppBar(
-    user: AuthUser,
+    user: AuthUser?,
     onSignOut: () -> Unit,
     onSearchClick: () -> Unit,
     onRefreshClick: () -> Unit,
@@ -169,11 +226,19 @@ private fun TopAppBar(
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = user.displayName ?: user.email,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (user != null) {
+                    Text(
+                        text = user.displayName ?: user.email,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Text(
+                        text = "Offline Mode",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             Row(
@@ -199,8 +264,10 @@ private fun TopAppBar(
                     Text("⚙️")
                 }
 
-                OutlinedButton(onClick = onSignOut) {
-                    Text("Sign Out")
+                if (user != null) {
+                    OutlinedButton(onClick = onSignOut) {
+                        Text("Sign Out")
+                    }
                 }
             }
         }
@@ -453,7 +520,7 @@ private fun ErrorState(
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(onSignIn: (() -> Unit)? = null) {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -483,12 +550,65 @@ private fun EmptyState() {
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            if (onSignIn != null) {
+                Text(
+                    text = "Sign in to sync recipes from Google Drive.",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.outline,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(onClick = onSignIn) {
+                    Text("Sign In")
+                }
+            } else {
+                Text(
+                    text = "Your recipes will sync automatically from Google Drive.",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.outline,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AuthenticationRequiredState(onSignIn: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
             Text(
-                text = "Your recipes will sync automatically from Google Drive.",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.outline,
+                text = "🔒",
+                fontSize = 64.sp
+            )
+
+            Text(
+                text = "Sign In Required",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text = "Please sign in to sync recipes from Google Drive.",
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(onClick = onSignIn) {
+                Text("Sign In")
+            }
         }
     }
 }

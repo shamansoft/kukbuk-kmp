@@ -237,4 +237,25 @@ class RecipeListViewModel(
     fun retryLoading() {
         loadInitialRecipes()
     }
+
+    /**
+     * Clear all cached data including persistent storage.
+     * Called when user explicitly logs out for privacy and data consistency.
+     */
+    fun clearAllData() {
+        viewModelScope.launch {
+            // Clear all repository data
+            recipeRepository.clearAllData()
+
+            // Reset ViewModel state
+            _progressiveRecipes.value = emptyList()
+            _searchQuery.value = ""
+            _searchResults.value = emptyList()
+            _isSearching.value = false
+            _hasMore.value = true
+
+            // Cancel any ongoing operations
+            progressiveLoadingJob?.cancel()
+        }
+    }
 }

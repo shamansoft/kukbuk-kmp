@@ -6,15 +6,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import net.shamansoft.kukbuk.auth.AuthenticationRepository
 import net.shamansoft.kukbuk.cache.RecipeCache
 import net.shamansoft.kukbuk.util.Logger
 
 /**
  * ViewModel for Settings screen
- * Manages cache operations and settings state
+ * Manages cache operations, logout, and settings state
  */
 class SettingsViewModel(
-    private val recipeCache: RecipeCache
+    private val recipeCache: RecipeCache,
+    private val authRepository: AuthenticationRepository
 ) : ViewModel() {
 
     private val _settingsState = MutableStateFlow(SettingsState())
@@ -94,6 +96,51 @@ class SettingsViewModel(
         _settingsState.value = _settingsState.value.copy(isLoading = true)
         loadCacheInfo()
     }
+
+    /**
+     * Log out the user
+     * Clears all cached data and revokes authentication tokens
+     */
+    fun logout() {
+        viewModelScope.launch {
+            try {
+                _settingsState.value = _settingsState.value.copy(isLoggingOut = true)
+                Logger.d("SettingsVM", "Logging out user...")
+
+                // Clear cached recipes first
+                try {
+                    recipeCache.clearCache()
+                    Logger.d("SettingsVM", "Cache cleared during logout")
+                } catch (e: Exception) {
+                    Logger.e("SettingsVM", "Failed to clear cache during logout: ${e.message}")
+                    // Continue with logout even if cache clear fails
+                }
+
+                // Sign out from authentication
+                val result = authRepository.signOut()
+
+                if (result.isSuccess) {
+                    Logger.d("SettingsVM", "Logout successful")
+                    _settingsState.value = _settingsState.value.copy(
+                        isLoggingOut = false,
+                        logoutSuccess = true
+                    )
+                } else {
+                    Logger.e("SettingsVM", "Logout failed: ${result.exceptionOrNull()?.message}")
+                    _settingsState.value = _settingsState.value.copy(
+                        isLoggingOut = false,
+                        error = "Logout failed. Please try again."
+                    )
+                }
+            } catch (e: Exception) {
+                Logger.e("SettingsVM", "Exception during logout: ${e.message}")
+                _settingsState.value = _settingsState.value.copy(
+                    isLoggingOut = false,
+                    error = "Logout failed: ${e.message}"
+                )
+            }
+        }
+    }
 }
 
 /**
@@ -103,6 +150,8 @@ data class SettingsState(
     val cachedRecipeCount: Int = 0,
     val isLoading: Boolean = true,
     val isClearing: Boolean = false,
+    val isLoggingOut: Boolean = false,
     val showClearSuccess: Boolean = false,
+    val logoutSuccess: Boolean = false,
     val error: String? = null
 )

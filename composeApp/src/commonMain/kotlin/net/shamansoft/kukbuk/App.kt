@@ -47,59 +47,51 @@ fun AppContent() {
     // Keep ViewModel alive across navigation - inject via Koin
     val recipeListViewModel = koinViewModel<net.shamansoft.kukbuk.recipe.RecipeListViewModel>()
 
-    when (val currentState = authState) {
-        is AuthenticationState.Authenticated -> {
-            when (val screen = currentScreen) {
-                Screen.RecipeList -> {
-                    RecipeListScreen(
-                        user = currentState.user,
-                        onSignOut = { authViewModel.signOut() },
-                        viewModel = recipeListViewModel,
-                        onRecipeClick = { recipe ->
-                            currentScreen = Screen.RecipeDetail(
-                                recipeId = recipe.id,
-                                recipeTitle = recipe.title
-                            )
-                        },
-                        onNavigateToSettings = {
-                            currentScreen = Screen.Settings
-                        }
+    // Offline-first: Always show main content, authentication handled inline when needed
+    when (val screen = currentScreen) {
+        Screen.RecipeList -> {
+            RecipeListScreen(
+                user = (authState as? AuthenticationState.Authenticated)?.user,
+                onSignOut = {
+                    authViewModel.signOut()
+                    recipeListViewModel.clearAllData() // Clear cached recipes on explicit logout
+                },
+                viewModel = recipeListViewModel,
+                authViewModel = authViewModel,
+                onRecipeClick = { recipe ->
+                    currentScreen = Screen.RecipeDetail(
+                        recipeId = recipe.id,
+                        recipeTitle = recipe.title
                     )
+                },
+                onNavigateToSettings = {
+                    currentScreen = Screen.Settings
                 }
-
-                is Screen.RecipeDetail -> {
-                    // Inject RecipeDetailViewModel with parameter (recipeId)
-                    val detailViewModel = koinViewModel<net.shamansoft.kukbuk.recipe.RecipeDetailViewModel>(
-                        key = screen.recipeId // Use recipeId as key to create unique instances
-                    ) {
-                        parametersOf(screen.recipeId)
-                    }
-
-                    RecipeDetailScreen(
-                        recipeId = screen.recipeId,
-                        recipeTitle = screen.recipeTitle,
-                        onNavigateBack = { currentScreen = Screen.RecipeList },
-                        viewModel = detailViewModel
-                    )
-                }
-
-                Screen.Settings -> {
-                    val settingsViewModel = koinViewModel<net.shamansoft.kukbuk.settings.SettingsViewModel>()
-
-                    SettingsScreen(
-                        onNavigateBack = { currentScreen = Screen.RecipeList },
-                        viewModel = settingsViewModel
-                    )
-                }
-            }
+            )
         }
 
-        else -> {
-            AuthenticationScreen(
-                onAuthenticationSuccess = {
-                    // Navigation handled by state observation
-                },
-                authViewModel = authViewModel
+        is Screen.RecipeDetail -> {
+            // Inject RecipeDetailViewModel with parameter (recipeId)
+            val detailViewModel = koinViewModel<net.shamansoft.kukbuk.recipe.RecipeDetailViewModel>(
+                key = screen.recipeId // Use recipeId as key to create unique instances
+            ) {
+                parametersOf(screen.recipeId)
+            }
+
+            RecipeDetailScreen(
+                recipeId = screen.recipeId,
+                recipeTitle = screen.recipeTitle,
+                onNavigateBack = { currentScreen = Screen.RecipeList },
+                viewModel = detailViewModel
+            )
+        }
+
+        Screen.Settings -> {
+            val settingsViewModel = koinViewModel<net.shamansoft.kukbuk.settings.SettingsViewModel>()
+
+            SettingsScreen(
+                onNavigateBack = { currentScreen = Screen.RecipeList },
+                viewModel = settingsViewModel
             )
         }
     }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import net.shamansoft.kukbuk.auth.AuthenticationRepository
 import net.shamansoft.kukbuk.cache.RecipeCache
 import net.shamansoft.kukbuk.util.Logger
 import net.shamansoft.recipe.model.Recipe
@@ -19,7 +20,8 @@ import net.shamansoft.recipe.parser.RecipeParseException
 
 class RecipeRepository(
     private val dataSource: RecipeDataSource,
-    private val recipeCache: RecipeCache
+    private val recipeCache: RecipeCache,
+    private val authRepository: AuthenticationRepository
 ) {
 
     private val _recipeListState = MutableStateFlow<RecipeListState>(RecipeListState.Loading)
@@ -115,7 +117,13 @@ class RecipeRepository(
             }
 
             is DataSourceResult.Error -> {
-                _recipeListState.value = RecipeListState.Error(result.message)
+                // Check if error is due to authentication (401)
+                if (result.code == 401) {
+                    Logger.d("RecipeRepo", "Authentication required to load recipes")
+                    _recipeListState.value = RecipeListState.AuthenticationRequired
+                } else {
+                    _recipeListState.value = RecipeListState.Error(result.message)
+                }
             }
 
             is DataSourceResult.Loading -> {
@@ -140,6 +148,26 @@ class RecipeRepository(
             Logger.d("RecipeRepo", "Emitting ${cached.size} cached recipes progressively")
             cached.forEach { recipe ->
                 emit(RecipeLoadEvent.RecipeLoaded(recipe))
+            }
+        }
+
+        // Offline-first: Check if we have a valid token before attempting to sync
+        val hasValidToken = authRepository.getValidAccessToken() != null
+
+        if (!hasValidToken) {
+            Logger.d("RecipeRepo", "No valid authentication token - skipping sync")
+
+            // If we have cached recipes, that's fine - user can view them offline
+            if (_metadataCache != null && _metadataCache!!.isNotEmpty()) {
+                Logger.d("RecipeRepo", "Using cached recipes in offline mode")
+                emit(RecipeLoadEvent.LoadingComplete(_metadataCache!!.size))
+                return@flow
+            } else {
+                // No cached data and no authentication - need to authenticate
+                Logger.d("RecipeRepo", "No cached recipes and no authentication - authentication required")
+                _recipeListState.value = RecipeListState.AuthenticationRequired
+                emit(RecipeLoadEvent.Error("Sign in to sync recipes from Google Drive"))
+                return@flow
             }
         }
 
@@ -215,7 +243,13 @@ class RecipeRepository(
 
                 is DataSourceResult.Error -> {
                     Logger.e("RecipeRepo", "Error loading recipes: ${result.message}")
-                    _recipeListState.value = RecipeListState.Error(result.message)
+                    // Check if error is due to authentication (401)
+                    if (result.code == 401) {
+                        Logger.d("RecipeRepo", "Authentication required to load recipes progressively")
+                        _recipeListState.value = RecipeListState.AuthenticationRequired
+                    } else {
+                        _recipeListState.value = RecipeListState.Error(result.message)
+                    }
                     emit(RecipeLoadEvent.Error(result.message))
                 }
 
@@ -259,6 +293,26 @@ class RecipeRepository(
             Logger.d("RecipeRepo", "No more pages to load")
             emit(RecipeLoadEvent.LoadingComplete(0))
             return@flow
+        }
+
+        // Offline-first: Check if we have a valid token before attempting to sync
+        val hasValidToken = authRepository.getValidAccessToken() != null
+
+        if (!hasValidToken) {
+            Logger.d("RecipeRepo", "No valid authentication token - skipping sync")
+
+            // If we have cached recipes, that's fine - user can view them offline
+            if (_metadataCache != null && _metadataCache!!.isNotEmpty()) {
+                Logger.d("RecipeRepo", "Using cached recipes in offline mode")
+                emit(RecipeLoadEvent.LoadingComplete(_metadataCache!!.size))
+                return@flow
+            } else {
+                // No cached data and no authentication - need to authenticate
+                Logger.d("RecipeRepo", "No cached recipes and no authentication - authentication required")
+                _recipeListState.value = RecipeListState.AuthenticationRequired
+                emit(RecipeLoadEvent.Error("Sign in to sync recipes from Google Drive"))
+                return@flow
+            }
         }
 
         emit(RecipeLoadEvent.LoadingStarted)
@@ -324,7 +378,13 @@ class RecipeRepository(
 
                 is DataSourceResult.Error -> {
                     Logger.e("RecipeRepo", "Error loading recipe page: ${result.message}")
-                    _recipeListState.value = RecipeListState.Error(result.message)
+                    // Check if error is due to authentication (401)
+                    if (result.code == 401) {
+                        Logger.d("RecipeRepo", "Authentication required to load recipe page")
+                        _recipeListState.value = RecipeListState.AuthenticationRequired
+                    } else {
+                        _recipeListState.value = RecipeListState.Error(result.message)
+                    }
                     emit(RecipeLoadEvent.Error(result.message))
                 }
 
@@ -484,10 +544,35 @@ class RecipeRepository(
         }
     }
 
+    /**
+     * Clear in-memory caches only (for refresh without losing offline data).
+     */
     fun clearCache() {
         _recipeCache.clear()
         _metadataCache = null
         Logger.d("RecipeRepo", "Cleared in-memory caches (recipe details and metadata)")
+    }
+
+    /**
+     * Clear all cached data including persistent storage.
+     * Used when user explicitly logs out for privacy and data consistency.
+     */
+    suspend fun clearAllData() {
+        // Clear in-memory caches
+        _recipeCache.clear()
+        _metadataCache = null
+
+        // Clear persistent cache
+        recipeCache.clearCache()
+
+        // Reset UI state
+        _recipeListState.value = RecipeListState.Empty
+
+        // Reset pagination
+        nextPageToken = null
+        hasMorePages = true
+
+        Logger.d("RecipeRepo", "Cleared all data (in-memory + persistent + UI state)")
     }
 
     fun getCachedRecipesCount(): Int {

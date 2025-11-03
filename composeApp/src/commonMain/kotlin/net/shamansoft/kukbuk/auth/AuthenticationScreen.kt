@@ -116,6 +116,14 @@ fun AuthenticationScreen(
                         )
                     }
 
+                    is AuthenticationState.Refreshing -> {
+                        CircularProgressIndicator()
+                        Text(
+                            text = "Refreshing authentication...",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
                     is AuthenticationState.Unauthenticated -> {
                         GoogleSignInButton(
                             onClick = { 
@@ -203,6 +211,132 @@ fun AuthenticationScreen(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Compact authentication UI suitable for inline dialogs.
+ * Removes unnecessary padding, titles, and card wrappers for a cleaner dialog experience.
+ */
+@Composable
+fun InlineAuthenticationContent(
+    onAuthenticationSuccess: () -> Unit,
+    authViewModel: AuthViewModel
+) {
+    val authState by authViewModel.authState.collectAsState()
+    val isLoading by authViewModel.isLoading.collectAsState()
+    val errorMessage by authViewModel.errorMessage.collectAsState()
+
+    LaunchedEffect(authState) {
+        when (authState) {
+            is AuthenticationState.Authenticated -> onAuthenticationSuccess()
+            else -> {}
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Show error message if present
+        errorMessage?.let { error ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Text(
+                    text = error,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp)
+                )
+            }
+        }
+
+        // Sign-in content based on state
+        when (authState) {
+            is AuthenticationState.Loading -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                    Text(
+                        text = "Checking authentication...",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            is AuthenticationState.Refreshing -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                    Text(
+                        text = "Refreshing authentication...",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            is AuthenticationState.Unauthenticated -> {
+                GoogleSignInButton(
+                    onClick = {
+                        authViewModel.clearError()
+                        authViewModel.signInWithGoogle()
+                    },
+                    enabled = !isLoading
+                )
+
+                if (isLoading) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                        Text(
+                            text = "Signing in...",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            is AuthenticationState.Error -> {
+                GoogleSignInButton(
+                    onClick = {
+                        authViewModel.clearError()
+                        authViewModel.signInWithGoogle()
+                    },
+                    enabled = !isLoading
+                )
+            }
+
+            is AuthenticationState.Authenticated -> {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                    Text(
+                        text = "Signed in! Syncing recipes...",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

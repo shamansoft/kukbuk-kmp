@@ -1,28 +1,35 @@
 package net.shamansoft.kukbuk.auth
 
 import android.content.Context
-import android.content.Intent
-import androidx.activity.result.ActivityResultLauncher
+import android.accounts.Account
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetCredentialResponse
 import com.google.android.gms.auth.GoogleAuthUtil
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
-import com.google.android.gms.common.api.Scope
-import kotlinx.coroutines.CoroutineScope
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import net.shamansoft.kukbuk.MainActivity
 import net.shamansoft.kukbuk.R
 import net.shamansoft.kukbuk.util.Logger
-import kotlin.coroutines.resume
 
+/**
+ * Android implementation of AuthenticationService using the modern Credential Manager API.
+ *
+ * This implementation:
+ * - Uses Credential Manager for Google Sign-In
+ * - Uses GoogleAuthUtil to get OAuth access tokens for Google Drive API
+ * - Stores tokens securely in EncryptedSharedPreferences
+ *
+ * Note: This implementation does not support true token refresh. Users will need to
+ * re-authenticate when tokens expire (typically after 1 hour).
+ */
 class AndroidAuthenticationService(
     private val context: Context,
     private val activity: MainActivity
@@ -33,136 +40,136 @@ class AndroidAuthenticationService(
     override val authenticationState: StateFlow<AuthenticationState> =
         _authenticationState.asStateFlow()
 
-    private val googleSignInClient: GoogleSignInClient
-    private val signInLauncher: ActivityResultLauncher<Intent>
-    private var pendingSignInContinuation: ((Result<GoogleSignInAccount>) -> Unit)? = null
+    private val credentialManager = CredentialManager.create(context)
 
-    init {
-        // Configure Google Sign-In with OAuth scopes
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestEmail()
-            .requestIdToken(context.getString(R.string.google_web_client_id))
-            .requestServerAuthCode(context.getString(R.string.google_web_client_id))
-            // Request OAuth scopes for Google Drive API
-            .requestScopes(
-                Scope("https://www.googleapis.com/auth/drive.readonly"),
-                Scope("https://www.googleapis.com/auth/drive.file")
+    override suspend fun signInWithGoogle(): AuthResult = withContext(Dispatchers.Main) {
+        try {
+            val serverClientId = context.getString(R.string.google_web_client_id)
+
+            // Build Google ID option with server auth code for refresh tokens
+            val googleIdOption = GetGoogleIdOption.Builder()
+                .setFilterByAuthorizedAccounts(false) // Allow account picker
+                .setServerClientId(serverClientId)
+                .setNonce(null) // Optional nonce for security
+                .build()
+
+            val request = GetCredentialRequest.Builder()
+                .addCredentialOption(googleIdOption)
+                .build()
+
+            // Request credentials using Credential Manager
+            val result = credentialManager.getCredential(
+                request = request,
+                context = activity
             )
-            .build()
 
-        googleSignInClient = GoogleSignIn.getClient(context, gso)
+            handleSignInResult(result, serverClientId)
 
-        // Get the launcher from MainActivity (already registered)
-        signInLauncher = activity.getSignInLauncher()
-
-        // Set the callback for sign-in results
-        activity.signInResultCallback = { data ->
-            handleSignInActivityResult(data)
-        }
-    }
-
-    override suspend fun signInWithGoogle(): AuthResult = suspendCancellableCoroutine { continuation ->
-        try {
-            // Sign out first to ensure we get fresh tokens with proper scopes
-            googleSignInClient.signOut().addOnCompleteListener {
-                val signInIntent = googleSignInClient.signInIntent
-                pendingSignInContinuation = { result ->
-                    result.fold(
-                        onSuccess = { account ->
-                            CoroutineScope(Dispatchers.IO).launch {
-                                val authResult = convertAccountToAuthResult(account)
-                                continuation.resume(authResult)
-                            }
-                        },
-                        onFailure = { error ->
-                            Logger.e("AndroidAuth", "Sign-in failed: ${error.message}")
-                            continuation.resume(AuthResult.Error(error.message ?: "Sign in failed"))
-                        }
-                    )
-                }
-
-                signInLauncher?.launch(signInIntent)
-            }
+        } catch (e: androidx.credentials.exceptions.GetCredentialCancellationException) {
+            Logger.e("AndroidAuth", "Sign-in cancelled by user")
+            AuthResult.Cancelled
+        } catch (e: androidx.credentials.exceptions.NoCredentialException) {
+            Logger.e("AndroidAuth", "No credentials available: ${e.message}")
+            AuthResult.Error("No Google account found on device")
         } catch (e: Exception) {
-            Logger.e("AndroidAuth", "Exception in signInWithGoogle: ${e.message}")
-            continuation.resume(AuthResult.Error("Sign in failed: ${e.message}"))
+            Logger.e("AndroidAuth", "Sign-in failed: ${e.message}")
+            AuthResult.Error("Sign in failed: ${e.message}")
         }
     }
 
-    private fun handleSignInActivityResult(data: Intent?) {
-        try {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
-            val account = task.getResult(ApiException::class.java)
+    private suspend fun handleSignInResult(
+        result: GetCredentialResponse,
+        serverClientId: String
+    ): AuthResult {
+        return try {
+            when (val credential = result.credential) {
+                is CustomCredential -> {
+                    if (credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                        val googleIdTokenCredential = GoogleIdTokenCredential
+                            .createFrom(credential.data)
 
-            pendingSignInContinuation?.invoke(Result.success(account))
-            pendingSignInContinuation = null
+                        // Extract user information
+                        val user = AuthUser(
+                            id = googleIdTokenCredential.id,
+                            email = googleIdTokenCredential.id, // Email is the ID
+                            displayName = googleIdTokenCredential.displayName,
+                            photoUrl = googleIdTokenCredential.profilePictureUri?.toString()
+                        )
 
-        } catch (e: ApiException) {
-            when (e.statusCode) {
-                12501 -> { // USER_CANCELED
-                    pendingSignInContinuation?.invoke(Result.failure(Exception("Sign in cancelled")))
+                        // Get actual OAuth access token for Google Drive API
+                        // The ID token is for identity, but we need an access token for API calls
+                        Logger.d("AndroidAuth", "Getting OAuth access token for Google Drive...")
+
+                        return try {
+                            val accessToken = withContext(Dispatchers.IO) {
+                                getOAuthAccessToken(googleIdTokenCredential.id)
+                            }
+
+                            val tokens = AuthTokens(
+                                accessToken = accessToken,
+                                refreshToken = accessToken, // Use same token (no real refresh capability)
+                                expiresAt = kotlinx.datetime.Clock.System.now()
+                                    .toEpochMilliseconds() + 3600_000
+                            )
+
+                            AuthResult.Success(user, tokens)
+                        } catch (e: Exception) {
+                            Logger.e("AndroidAuth", "Failed to get access token: ${e.message}")
+                            AuthResult.Error("Failed to get access token: ${e.message}")
+                        }
+                    } else {
+                        Logger.e("AndroidAuth", "Unexpected credential type: ${credential.type}")
+                        AuthResult.Error("Unexpected credential type")
+                    }
                 }
                 else -> {
-                    Logger.e("AndroidAuth", "Sign-in API error: ${e.statusCode} - ${e.message}")
-                    pendingSignInContinuation?.invoke(Result.failure(e))
+                    Logger.e("AndroidAuth", "Unexpected credential class: ${credential::class}")
+                    AuthResult.Error("Unexpected credential format")
                 }
             }
-            pendingSignInContinuation = null
+        } catch (e: GoogleIdTokenParsingException) {
+            Logger.e("AndroidAuth", "Invalid Google ID token: ${e.message}")
+            AuthResult.Error("Invalid Google credential")
         } catch (e: Exception) {
-            Logger.e("AndroidAuth", "Exception processing sign-in: ${e.message}")
-            pendingSignInContinuation?.invoke(Result.failure(e))
-            pendingSignInContinuation = null
+            Logger.e("AndroidAuth", "Failed to process sign-in result: ${e.message}")
+            AuthResult.Error("Failed to process sign-in: ${e.message}")
         }
     }
 
-    private suspend fun convertAccountToAuthResult(account: GoogleSignInAccount): AuthResult {
-        val user = AuthUser(
-            id = account.id ?: account.email ?: "",
-            email = account.email ?: "",
-            displayName = account.displayName,
-            photoUrl = account.photoUrl?.toString()
-        )
-
-        return try {
-            if (account.account == null) {
-                Logger.e("AndroidAuth", "No Android Account available")
-                return AuthResult.Error("No account available for token request")
-            }
-
-            // Scope format for GoogleAuthUtil: "oauth2:scope1 scope2"
-            val scope = "oauth2:https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file"
-
-            // Get OAuth access token on IO dispatcher (network operation)
-            val accessToken = withContext(Dispatchers.IO) {
-                try {
-                    GoogleAuthUtil.getToken(context, account.account!!, scope)
-                } catch (e: Exception) {
-                    Logger.e("AndroidAuth", "Failed to get OAuth token: ${e.message}")
-                    throw e
-                }
-            }
-
-            val tokens = AuthTokens(
-                accessToken = accessToken,
-                refreshToken = account.serverAuthCode,
-                expiresAt = kotlinx.datetime.Clock.System.now().toEpochMilliseconds() + 3600_000 // 1 hour
-            )
-
-            AuthResult.Success(user, tokens)
-
-        } catch (e: Exception) {
-            Logger.e("AndroidAuth", "Failed to create auth result: ${e.message}")
-            AuthResult.Error("Failed to get OAuth access token: ${e.message}")
-        }
-    }
-
-    companion object {
-        private const val REQUEST_CODE_OAUTH = 9001
+    /**
+     * Token refresh is not supported in this implementation.
+     * Returns error to trigger re-authentication when token expires.
+     */
+    override suspend fun refreshToken(): AuthResult {
+        Logger.i("AndroidAuth", "Token refresh not supported - require re-authentication")
+        return AuthResult.Error("Token refresh not supported. Please sign in again.")
     }
 
     override suspend fun signOut(): Result<Unit> {
         return try {
-            googleSignInClient.signOut().await()
+            // Get current tokens for revocation
+            val secureStorage = AndroidSecureStorage(context)
+            val tokens = secureStorage.getTokens()
+
+            // Revoke the OAuth token server-side
+            if (tokens != null) {
+                try {
+                    withContext(Dispatchers.IO) {
+                        GoogleAuthUtil.clearToken(context, tokens.accessToken)
+                    }
+                    Logger.d("AndroidAuth", "OAuth token revoked successfully")
+                } catch (e: Exception) {
+                    Logger.e("AndroidAuth", "Failed to revoke token: ${e.message}")
+                    // Continue with sign out even if revocation fails
+                }
+            }
+
+            // Clear credentials from Credential Manager
+            credentialManager.clearCredentialState(
+                androidx.credentials.ClearCredentialStateRequest()
+            )
+
+            Logger.d("AndroidAuth", "Sign out completed successfully")
             Result.success(Unit)
         } catch (e: Exception) {
             Logger.e("AndroidAuth", "Sign out failed: ${e.message}")
@@ -171,56 +178,53 @@ class AndroidAuthenticationService(
     }
 
     override suspend fun getCurrentUser(): AuthUser? {
-        val account = GoogleSignIn.getLastSignedInAccount(context)
-        return account?.let {
-            AuthUser(
-                id = it.id ?: it.email ?: "",
-                email = it.email ?: "",
-                displayName = it.displayName,
-                photoUrl = it.photoUrl?.toString()
-            )
-        }
+        // With Credential Manager, we rely on stored user info
+        val secureStorage = AndroidSecureStorage(context)
+        return secureStorage.getUser()
     }
 
     override suspend fun isUserSignedIn(): Boolean {
-        val account = GoogleSignIn.getLastSignedInAccount(context)
-        return account != null && !account.isExpired
+        val secureStorage = AndroidSecureStorage(context)
+        return secureStorage.getUser() != null && secureStorage.getTokens() != null
     }
 
     override suspend fun getValidAccessToken(): String? {
-        val account = GoogleSignIn.getLastSignedInAccount(context)
-        if (account == null || account.isExpired) {
-            return null
-        }
-        return account.idToken
-    }
+        val secureStorage = AndroidSecureStorage(context)
+        val tokens = secureStorage.getTokens() ?: return null
 
-    override suspend fun refreshToken(): AuthResult {
-        val account = GoogleSignIn.getLastSignedInAccount(context)
-        if (account == null) {
-            return AuthResult.Error("No account to refresh")
-        }
+        // Check if token is expired (with 5-minute buffer)
+        val bufferTime = 300_000L // 5 minutes
+        val now = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
 
-        // Token refresh requires server auth code exchange implementation
-        return AuthResult.Error("Token refresh not yet implemented - please sign in again")
+        return if (now < tokens.expiresAt - bufferTime) {
+            tokens.accessToken
+        } else {
+            null // Token expired, needs refresh
+        }
     }
 
     override suspend fun validateToken(token: String): Boolean {
         return try {
-            token.isNotBlank() && token.startsWith("eyJ") // Basic JWT format check
+            // Basic validation: check if it's a valid format
+            token.isNotBlank() && token.length > 32
         } catch (e: Exception) {
             false
         }
     }
-}
 
-// Extension function to convert Tasks to coroutines
-private suspend fun <T> com.google.android.gms.tasks.Task<T>.await(): T =
-    suspendCancellableCoroutine { continuation ->
-        addOnSuccessListener { result ->
-            continuation.resume(result)
-        }
-        addOnFailureListener { exception ->
-            continuation.cancel(exception)
+    /**
+     * Get OAuth access token using GoogleAuthUtil.
+     * This gets a proper access token that works with Google Drive API.
+     */
+    private fun getOAuthAccessToken(email: String): String {
+        val account = Account(email, "com.google")
+        val scope = "oauth2:https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file"
+
+        return try {
+            GoogleAuthUtil.getToken(context, account, scope)
+        } catch (e: Exception) {
+            Logger.e("AndroidAuth", "GoogleAuthUtil.getToken failed: ${e.message}")
+            throw e
         }
     }
+}
