@@ -52,7 +52,10 @@ fun AppContent() {
         Screen.RecipeList -> {
             RecipeListScreen(
                 user = (authState as? AuthenticationState.Authenticated)?.user,
-                onSignOut = { authViewModel.signOut() },
+                onSignOut = {
+                    authViewModel.signOut()
+                    recipeListViewModel.clearAllData() // Clear cached recipes on explicit logout
+                },
                 viewModel = recipeListViewModel,
                 authViewModel = authViewModel,
                 onRecipeClick = { recipe ->

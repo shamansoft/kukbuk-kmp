@@ -544,10 +544,35 @@ class RecipeRepository(
         }
     }
 
+    /**
+     * Clear in-memory caches only (for refresh without losing offline data).
+     */
     fun clearCache() {
         _recipeCache.clear()
         _metadataCache = null
         Logger.d("RecipeRepo", "Cleared in-memory caches (recipe details and metadata)")
+    }
+
+    /**
+     * Clear all cached data including persistent storage.
+     * Used when user explicitly logs out for privacy and data consistency.
+     */
+    suspend fun clearAllData() {
+        // Clear in-memory caches
+        _recipeCache.clear()
+        _metadataCache = null
+
+        // Clear persistent cache
+        recipeCache.clearCache()
+
+        // Reset UI state
+        _recipeListState.value = RecipeListState.Empty
+
+        // Reset pagination
+        nextPageToken = null
+        hasMorePages = true
+
+        Logger.d("RecipeRepo", "Cleared all data (in-memory + persistent + UI state)")
     }
 
     fun getCachedRecipesCount(): Int {
